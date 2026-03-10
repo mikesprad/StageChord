@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StageChord</title>
+    <link rel="stylesheet" href="styles.css?v=20260310T1">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2f7d6c">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="StageChord">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+    <header>
+        <button id="menu-btn" type="button" title="Manage">☰ Manage</button>
+        <h1>StageChord</h1>
+    </header>
+
+    <!-- Slide-out menu -->
+    <div id="menu-overlay" class="hidden"></div>
+    <nav id="menu-panel" class="hidden">
+        <div id="menu-header">
+            <span>Menu</span>
+            <button id="menu-close-btn" type="button">✕</button>
+        </div>
+        <div class="menu-section">
+            <div class="menu-section-title">Set</div>
+            <button id="menu-new-set" type="button">New Set</button>
+            <button id="menu-load-set" type="button">Load Set</button>
+            <button id="menu-save-set" type="button">Save Set</button>
+            <button id="menu-import-set" type="button">Import Set</button>
+            <button id="menu-share-set-link" type="button">Share Set as Link</button>
+            <button id="menu-share-set-file" type="button">Share Set as File</button>
+        </div>
+        <div class="menu-section">
+            <div class="menu-section-title">Library</div>
+            <button id="menu-add-songs" type="button">Add Songs to Library</button>
+            <button id="menu-browse-library" type="button">Browse Library</button>
+            <button id="menu-export-library" type="button">Export Library</button>
+            <button id="menu-import-library" type="button">Import Library</button>
+        </div>
+        <div class="menu-section">
+            <button id="menu-install-app" type="button" class="hidden">Add as App</button>
+        </div>
+        <input type="file" id="file-input" multiple class="hidden">
+        <input type="file" id="import-library-input" accept=".json" class="hidden">
+        <input type="file" id="import-set-input" accept=".json" class="hidden">
+    </nav>
+
+    <main>
+        <section id="controls">
+            <div id="song-order-row">
+                <div id="song-order-collapsed">
+                    <button id="song-order-btn" type="button">Song Order</button>
+                    <select id="file-select" size="1"></select>
+                </div>
+                <div id="song-order-expanded" class="hidden">
+                    <div id="song-order-header">
+                        <span>Reorder songs</span>
+                        <button id="song-order-done-btn" type="button">Done</button>
+                    </div>
+                    <ul id="song-reorder-list"></ul>
+                </div>
+            </div>
+
+            <div id="song-meta-row">
+                <div id="current-song-title"></div>
+                <div id="current-song-key"></div>
+            </div>
+        </section>
+
+        <div id="sticky-nav-row">
+            <div id="nav-buttons">
+                <button id="prev-btn" disabled>Prev Song</button>
+                <button id="next-btn" disabled>Next Song</button>
+            </div>
+            <button id="autoscroll-btn">Auto Scroll</button>
+            <div id="section-jumps"></div>
+        </div>
+
+        <section id="song-view"></section>
+    </main>
+
+    <!-- Library browser modal -->
+    <div id="library-modal" class="hidden">
+        <div id="library-modal-overlay"></div>
+        <div id="library-modal-panel">
+            <div id="library-modal-header">
+                <span>Song Library</span>
+                <button id="library-modal-close" type="button">✕</button>
+            </div>
+            <div id="library-song-list"></div>
+            <div id="library-modal-actions">
+                <button id="library-add-selected" type="button">Add Selected to Set</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load set modal -->
+    <div id="loadset-modal" class="hidden">
+        <div id="loadset-modal-overlay"></div>
+        <div id="loadset-modal-panel">
+            <div id="loadset-modal-header">
+                <span>Saved Sets</span>
+                <button id="loadset-modal-close" type="button">✕</button>
+            </div>
+            <div id="loadset-list"></div>
+        </div>
+    </div>
+
+    <!-- Save set modal -->
+    <div id="saveset-modal" class="hidden">
+        <div id="saveset-modal-overlay"></div>
+        <div id="saveset-modal-panel">
+            <div id="saveset-modal-header">
+                <span>Save Set</span>
+                <button id="saveset-modal-close" type="button">✕</button>
+            </div>
+            <div id="saveset-form">
+                <input type="text" id="saveset-name" placeholder="Set name...">
+                <button id="saveset-confirm" type="button">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="app.js?v=20260310T1"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./service-worker.js');
+        }
+    </script>
+</body>
+</html>

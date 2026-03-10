@@ -1,0 +1,773 @@
+/* Responsive, mobile-friendly stylesheet */
+html, body {
+  overscroll-behavior-y: none;
+}
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  line-height: 1.5;
+  background: #fafafa;
+  color: #333;
+}
+header {
+  background: #444;
+  color: #fff;
+  padding: 0 1rem;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+header h1 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.2;
+  flex: 1;
+}
+#menu-btn {
+  position: absolute;
+  left: 0.3rem;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 4px;
+  color: #fff;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+main {
+  padding: 1rem;
+}
+#controls {
+  display: block;
+}
+#song-order-row,
+#song-meta-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+  box-sizing: border-box;
+}
+#song-order-row {
+  flex-basis: 100%;
+}
+#song-meta-row {
+  flex-basis: 100%;
+  font-size: 1rem;
+}
+
+/* ── Menu panel ──────────────────────────────────── */
+#menu-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 900;
+}
+#menu-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 260px;
+  max-width: 80vw;
+  height: 100%;
+  background: #fff;
+  box-shadow: 2px 0 12px rgba(0,0,0,0.25);
+  z-index: 910;
+  overflow-y: auto;
+  padding: 0;
+}
+#menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+  border-bottom: 1px solid #ddd;
+}
+#menu-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  line-height: 1;
+}
+.menu-section {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #eee;
+}
+.menu-section-title {
+  padding: 0.3rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #888;
+  letter-spacing: 0.05em;
+}
+.menu-section button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem 1rem;
+  border: none;
+  background: none;
+  font-size: 0.95rem;
+  cursor: pointer;
+  color: #333;
+}
+.menu-section button:hover {
+  background: #f5f5f5;
+}
+.menu-section button:active {
+  background: #eee;
+}
+
+/* ── Modals (library browser, load set, save set) ── */
+#library-modal,
+#loadset-modal,
+#saveset-modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 950;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+#library-modal-overlay,
+#loadset-modal-overlay,
+#saveset-modal-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+}
+#library-modal-panel,
+#loadset-modal-panel,
+#saveset-modal-panel {
+  position: relative;
+  background: #fff;
+  border-radius: 8px;
+  padding: 1rem;
+  width: 100%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+#library-modal-header,
+#loadset-modal-header,
+#saveset-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+#library-modal-header button,
+#loadset-modal-header button,
+#saveset-modal-header button {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+}
+.library-song-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.2rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+.library-song-item label {
+  flex: 1;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.library-song-item .lib-delete-btn {
+  background: none;
+  border: none;
+  color: #c00;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.2rem 0.4rem;
+}
+#library-modal-actions {
+  margin-top: 0.75rem;
+  text-align: right;
+}
+#library-add-selected {
+  padding: 0.4rem 0.8rem;
+  background: #2f7d6c;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+#library-add-selected:hover {
+  background: #266b5c;
+}
+.setlist-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.2rem;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+}
+.setlist-item:hover {
+  background: #f5f5f5;
+}
+.setlist-item-name {
+  flex: 1;
+  font-size: 0.95rem;
+}
+.setlist-item-count {
+  font-size: 0.8rem;
+  color: #888;
+  margin-right: 0.5rem;
+}
+.setlist-item .setlist-delete-btn {
+  background: none;
+  border: none;
+  color: #c00;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.2rem 0.4rem;
+}
+#saveset-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+#saveset-name {
+  flex: 1;
+  padding: 0.4rem;
+  font-size: 0.95rem;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+}
+#saveset-confirm {
+  padding: 0.4rem 0.8rem;
+  background: #2f7d6c;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+#saveset-confirm:hover {
+  background: #266b5c;
+}
+.empty-message {
+  text-align: center;
+  color: #888;
+  padding: 1.5rem 0;
+  font-size: 0.95rem;
+}
+
+#song-order-row #file-select {
+  min-width: 220px;
+  max-width: 25ch;
+}
+.hidden {
+  display: none !important;
+}
+#song-order-collapsed {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#song-order-expanded {
+  width: 100%;
+}
+#song-order-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+}
+#song-order-done-btn {
+  font-weight: 600;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid #4CAF50;
+  border-radius: 4px;
+  background: #4CAF50;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+#song-order-done-btn:hover {
+  background: #45a049;
+}
+#song-reorder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+#song-reorder-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 0.3rem;
+  background: #fff;
+}
+.reorder-song-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.95rem;
+}
+.reorder-btn-wrap {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+.reorder-btn-wrap button {
+  padding: 0.2rem 0.5rem;
+  border: 1px solid #999;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.reorder-btn-wrap button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.reorder-btn-wrap button:not(:disabled):hover {
+  background: #f0f0f0;
+}
+#current-song-title {
+  font-weight: 700;
+}
+#current-song-key {
+  font-size: 1rem;
+}
+#sticky-nav-row {
+  position: -webkit-sticky;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+  background: #fafafa;
+  padding: 0.5rem 1rem;
+  margin: 0 -1rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  border-top: 1px solid #e6e6e6;
+  border-bottom: 1px solid #e0e0e0;
+  overflow-x: clip;
+  will-change: transform;
+}
+#nav-buttons {
+  display: flex;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+#autoscroll-btn {
+  padding: 0.35rem 0.6rem;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+#section-jumps {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+#section-jumps button {
+  padding: 0.35rem 0.55rem;
+  border: 1px solid #777;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+#section-jumps button:hover {
+  background: #f2f2f2;
+}
+#autoscroll-btn:hover {
+  background-color: #45a049;
+}
+#song-view {
+  margin-top: 1rem;
+  padding-bottom: 20vh;
+  white-space: pre-wrap;
+}
+.song-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+.song-key {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+}
+.song-key button {
+  margin-left: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.tempo-info {
+  margin-left: 0.8rem;
+  font-size: 0.75rem;
+  color: #666;
+}
+.chord-line {
+  font-weight: bold;
+  text-align: left;
+  white-space: pre;
+}
+.lyric-line {
+  text-align: left;
+  white-space: pre;
+}
+.chord-lyric-line {
+  text-align: left;
+  white-space: normal;
+  font-size: 0;
+}
+.chord-lyric-pair {
+  display: inline-block;
+  vertical-align: top;
+  white-space: pre;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+.chord-lyric-pair .chord {
+  display: block;
+  font-weight: bold;
+  min-height: 1.2em;
+  padding-right: 0.5em;
+  border-bottom: 2px solid transparent;
+}
+.chord-lyric-pair .lyric {
+  display: block;
+}
+.section-heading {
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #ddd;
+}
+.section-heading.tight-top {
+  margin-top: 0.35rem;
+  padding-top: 0.2rem;
+}
+/* ensure each token aligns by forcing inline-block spans */
+.chord-line span {
+  display: inline-block;
+}
+.meta-btn-group {
+  display: inline-flex;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+.annotate-btn {
+  margin-left: 0.5rem;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid #777;
+  border-radius: 4px;
+  background: #fff;
+  line-height: 1;
+}
+.annotate-btn:hover {
+  background: #eee;
+}
+.annotation-box {
+  background: #fff9e6;
+  border: 1px solid #e0c96e;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  white-space: pre-wrap;
+  font-size: 0.95rem;
+  color: #5a4e00;
+}
+#annotation-editor {
+  margin-bottom: 0.75rem;
+}
+#annotation-editor textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 0.95rem;
+  padding: 0.4rem;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  resize: vertical;
+}
+.annotation-editor-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+.annotation-editor-buttons button {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid #777;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.annotation-editor-buttons button:first-child {
+  background: #2f7d6c;
+  color: #fff;
+  border-color: #2f7d6c;
+}
+@media (max-width: 600px) {
+  header {
+    font-size: 1rem;
+  }
+  header h1 {
+    font-size: 1.2rem;
+  }
+  #file-row,
+  #song-order-row,
+  #song-meta-row,
+  #sticky-nav-row {
+    align-items: stretch;
+  }
+  #file-select {
+    width: 100%;
+  }
+}
+
+/* ── Stave editor ────────────────────────────────────── */
+.stave-editor-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+.stave-editor-panel {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1rem;
+  width: 100%;
+  max-width: 720px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+.stave-preview {
+  min-height: 60px;
+  margin-bottom: 0.4rem;
+  overflow-x: auto;
+}
+.stave-preview svg {
+  display: block;
+  margin: 0 auto;
+  transform: scale(0.70);
+  transform-origin: top left;
+}
+.stave-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+.stave-btn {
+  padding: 0.4rem 0.7rem;
+  font-size: 1rem;
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  background: #f5f5f5;
+  cursor: pointer;
+  min-width: 2.2rem;
+  height: 2.2rem;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.stave-btn svg {
+  display: block;
+}
+.stave-btn:active {
+  background: #ddd;
+}
+.stave-btn.active {
+  background: #2f7d6c;
+  color: #fff;
+  border-color: #2f7d6c;
+}
+.stave-btn.note-btn {
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.45rem;
+}
+.stave-actions {
+  margin-top: 0.75rem;
+  justify-content: flex-end;
+}
+.stave-btn.save-btn {
+  background: #2f7d6c;
+  color: #fff;
+  border-color: #2f7d6c;
+  font-weight: 600;
+}
+.stave-btn.cancel-btn {
+  background: #eee;
+}
+.stave-display {
+  margin-bottom: 0.25rem;
+  overflow-x: auto;
+  cursor: pointer;
+}
+.stave-display svg {
+  display: block;
+  transform: scale(0.70);
+  transform-origin: top left;
+}
+
+/* ── Chord Edit Mode ── */
+.chord-editable {
+  cursor: pointer;
+  border-bottom-color: #2f7d6c;
+  border-bottom-style: dashed;
+}
+.chord-editable:hover {
+  background: #e0f2ef;
+}
+.edit-target {
+  cursor: cell;
+}
+.edit-target:hover {
+  background: #f0faf7;
+}
+.active-edit {
+  background: #2f7d6c !important;
+  color: #fff !important;
+  border-color: #2f7d6c !important;
+}
+.reset-btn {
+  color: #c44 !important;
+}
+
+/* ── Chord Popup ── */
+#chord-popup {
+  position: absolute;
+  z-index: 1000;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  padding: 0.75rem;
+  min-width: 200px;
+  max-width: 300px;
+}
+.chord-popup-header {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+  padding-right: 1.5rem;
+}
+.chord-popup-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+.chord-popup-grid button {
+  padding: 0.4rem 0.55rem;
+  border: 1px solid #ddd;
+  background: #f7f7f7;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-width: 2.5rem;
+  text-align: center;
+}
+.chord-popup-grid button:active {
+  background: #2f7d6c;
+  color: #fff;
+  border-color: #2f7d6c;
+}
+.chord-popup-custom {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+.chord-popup-custom input {
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+.chord-popup-custom button {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid #2f7d6c;
+  background: #2f7d6c;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.chord-popup-delete {
+  display: block;
+  width: 100%;
+  padding: 0.4rem;
+  border: 1px solid #e44;
+  background: #fff;
+  color: #c33;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.chord-popup-delete:active {
+  background: #e44;
+  color: #fff;
+}
+.chord-popup-close {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.5rem;
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #999;
+  padding: 0;
+  line-height: 1;
+}

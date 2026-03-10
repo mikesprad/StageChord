@@ -1,0 +1,31 @@
+{
+  "name": "stagechord",
+  "version": "0.1.0",
+  "description": "Lightweight ChordPro renderer",
+  "main": "app.js",
+  "type": "module",
+ "homepage": "https://mikesprad.github.io/StageChord/",
+  "scripts": {
+    "test": "jest"
+  },
+  "keywords": [
+    "chordpro",
+    "music",
+    "chords",
+    "viewer"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/core": "^7.0.0",
+    "@babel/preset-env": "^7.0.0",
+    "babel-jest": "^29.0.0",
+    "jest": "^29.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node"
+  },
+  "dependencies": {
+    "vexflow": "^4.2.5"
+  }
+}

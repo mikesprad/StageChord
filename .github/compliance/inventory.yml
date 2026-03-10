@@ -1,0 +1,5 @@
+inventory:
+- source: DirectOwners
+  items:
+  - id: mispradb@microsoft.com
+  isProduction: false
