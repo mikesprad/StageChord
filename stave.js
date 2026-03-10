@@ -1,5 +1,5 @@
-// Stave editor module — uses VexFlow 4 loaded from CDN
-const VexPromise = import('https://esm.sh/vexflow@4.2.5').then(m => m.default || m);
+// Stave editor module — uses VexFlow 4 (bundled locally)
+const VexPromise = import('./vexflow.bundle.js').then(m => m.default || m);
 
 const NOTE_NAMES = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 const ACCIDENTALS = [

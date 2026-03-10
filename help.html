@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StageChord — Songs &amp; Help</title>
+    <meta name="theme-color" content="#2f7d6c">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f9f9f9;
+        }
+        header {
+            background: #2f7d6c;
+            color: #fff;
+            padding: 0.75rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        header h1 { font-size: 1.1rem; font-weight: 700; }
+        header a {
+            color: #fff;
+            text-decoration: none;
+            font-size: 0.9rem;
+            padding: 0.3rem 0.7rem;
+            border: 1px solid rgba(255,255,255,0.6);
+            border-radius: 4px;
+        }
+        header a:hover { background: rgba(255,255,255,0.15); }
+        main {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        h2 {
+            color: #2f7d6c;
+            font-size: 1.3rem;
+            margin: 1.5rem 0 0.5rem;
+            padding-bottom: 0.3rem;
+            border-bottom: 2px solid #2f7d6c;
+        }
+        h3 {
+            color: #333;
+            font-size: 1.05rem;
+            margin: 1rem 0 0.4rem;
+        }
+        p { margin: 0.5rem 0; }
+        ul, ol { margin: 0.5rem 0 0.5rem 1.5rem; }
+        li { margin: 0.25rem 0; }
+        code {
+            background: #e8f0ee;
+            padding: 0.1rem 0.35rem;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        .section { margin-bottom: 1.5rem; }
+
+        /* Song library cards */
+        .songlib-card {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0.75rem 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .songlib-card h3 {
+            margin: 0 0 0.3rem;
+            color: #2f7d6c;
+        }
+        .songlib-card h3:not(:first-of-type) {
+            margin-top: 0.8rem;
+            padding-top: 0.8rem;
+            border-top: 1px solid #e0e0e0;
+        }
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .section-header h2 {
+            flex: 1;
+        }
+        .btn-refresh {
+            font-size: 0.8rem;
+            padding: 0.3rem 0.7rem;
+            background: #fff;
+            color: #2f7d6c;
+            border: 1px solid #2f7d6c;
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .btn-refresh:hover { background: #e8f0ee; }
+        .songlib-card p {
+            font-size: 0.9rem;
+            color: #666;
+            margin: 0.2rem 0 0.6rem;
+        }
+        .songlib-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .songlib-actions button,
+        .songlib-actions a {
+            display: inline-block;
+            padding: 0.4rem 0.9rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            text-decoration: none;
+            border: none;
+        }
+        .btn-import {
+            background: #2f7d6c;
+            color: #fff;
+        }
+        .btn-import:hover { background: #256b5c; }
+        .btn-download {
+            background: #fff;
+            color: #2f7d6c;
+            border: 1px solid #2f7d6c !important;
+        }
+        .btn-download:hover { background: #e8f0ee; }
+
+        .toast {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: #fff;
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            z-index: 200;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+
+        .toc {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            margin: 1rem 0;
+        }
+        .toc a {
+            color: #2f7d6c;
+            text-decoration: none;
+        }
+        .toc a:hover { text-decoration: underline; }
+        .toc ul { margin: 0.3rem 0 0 1.2rem; }
+        .toc li { margin: 0.15rem 0; font-size: 0.92rem; }
+
+        kbd {
+            background: #eee;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            padding: 0.1rem 0.3rem;
+            font-size: 0.85em;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>StageChord</h1>
+        <a href="index.html">← Back to App</a>
+    </header>
+
+    <main>
+        <h2 id="welcome">Welcome!</h2>
+        <p>StageChord is a mobile-friendly viewer for songs written in <strong>ChordPro format</strong>. All your songs and settings are stored on your device — nothing is sent to a server, and the app works offline once installed.</p>
+
+        <!-- ============================================ -->
+        <!--  SONG LIBRARIES                              -->
+        <!-- ============================================ -->
+        <div class="section-header">
+            <h2 id="song-libraries">Song Libraries</h2>
+            <button class="btn-refresh" onclick="checkForNew()">Check for new</button>
+        </div>
+        <p>Browse available song collections below. You can <strong>import directly</strong> into your StageChord library, or <strong>download</strong> the file to import later.</p>
+
+        <div class="songlib-card">
+            <!-- ─── ADD NEW SONG LIBRARIES HERE ───
+                 Copy this block (h3 + p + songlib-actions div) and change
+                 the filename, title, and description.
+            ──────────────────────────────────── -->
+
+            <h3>Sample Songs</h3>
+            <p>A small collection of well-known songs to get started.</p>
+            <div class="songlib-actions">
+                <button class="btn-import" onclick="importLib('songlibs/sample-songs.json')">Import into StageChord</button>
+                <a class="btn-download" href="songlibs/sample-songs.json" download>Download</a>
+            </div>
+
+            <!-- ADD MORE SONG LIBRARIES ABOVE THIS LINE -->
+        </div>
+
+        <!-- ============================================ -->
+        <!--  APP GUIDE                                   -->
+        <!-- ============================================ -->
+        <h2 id="guide">App Guide</h2>
+
+        <div class="toc">
+            <strong>Contents</strong>
+            <ul>
+                <li><a href="#guide-getting-started">Getting Started</a></li>
+                <li><a href="#guide-adding-songs">Adding Songs</a></li>
+                <li><a href="#guide-song-navigation">Song Navigation &amp; Order</a></li>
+                <li><a href="#guide-transpose">Transposing</a></li>
+                <li><a href="#guide-chord-editing">Editing Chords &amp; Lyrics</a></li>
+                <li><a href="#guide-auto-scroll">Auto-Scroll</a></li>
+                <li><a href="#guide-tempo">Tempo Flash</a></li>
+                <li><a href="#guide-stave">Musical Stave (Notation)</a></li>
+                <li><a href="#guide-comments">Comments &amp; Annotations</a></li>
+                <li><a href="#guide-sets">Sets (Setlists)</a></li>
+                <li><a href="#guide-sharing">Sharing Sets</a></li>
+                <li><a href="#guide-library">Song Library</a></li>
+                <li><a href="#guide-import-export">Import &amp; Export</a></li>
+                <li><a href="#guide-install">Installing as an App</a></li>
+            </ul>
+        </div>
+
+        <!-- Getting Started -->
+        <div class="section" id="guide-getting-started">
+            <h3>Getting Started</h3>
+            <p>ChordPro is a simple text format that puts chord names in square brackets above the lyrics, like <code>[G]Amazing [C]grace</code>. You can find ChordPro files online, or create your own in any text editor.</p>
+            <p>To get started, add some songs using the <strong>☰ Manage</strong> menu, or import a song library from the <a href="#song-libraries">Song Libraries</a> section above.</p>
+        </div>
+
+        <!-- Adding Songs -->
+        <div class="section" id="guide-adding-songs">
+            <h3>Adding Songs</h3>
+            <p>Open the <strong>☰ Manage</strong> menu and tap <strong>Add Songs to Library</strong>. You can select one or more <code>.chopro</code>, <code>.chordpro</code>, or plain text files from your device.</p>
+            <p>Songs are stored in your <strong>library</strong> on the device. After adding, use <strong>Browse Library</strong> to select which songs to include in your current set.</p>
+            <p>You can also import song libraries directly from the <a href="#song-libraries">Song Libraries</a> section on this page.</p>
+        </div>
+
+        <!-- Song Navigation -->
+        <div class="section" id="guide-song-navigation">
+            <h3>Song Navigation &amp; Order</h3>
+            <p>When you have multiple songs in your set, use the <strong>Prev Song</strong> / <strong>Next Song</strong> buttons or the dropdown to switch between them.</p>
+            <p>Tap the <strong>Song Order</strong> button to expand the reorder panel. Use the <strong>↑</strong> and <strong>↓</strong> arrows to rearrange songs, then tap <strong>Done</strong>.</p>
+            <p><strong>Section jumps:</strong> Songs with sections (e.g. Verse, Chorus, Bridge) show quick-jump buttons in the navigation bar. Tap a section name to scroll directly to it.</p>
+        </div>
+
+        <!-- Transpose -->
+        <div class="section" id="guide-transpose">
+            <h3>Transposing</h3>
+            <p>Each song displays its key (detected from the <code>{key: ...}</code> directive, or inferred from the first chord). Use the <strong>−</strong> and <strong>+</strong> buttons to transpose up or down in semitones.</p>
+            <p>The key display shows the transposed key, e.g. <strong>Key: G</strong>. Transpose settings are saved per song and persist across sessions.</p>
+            <p>StageChord uses correct enharmonic spelling for each key — sharp keys show sharps, flat keys show flats.</p>
+        </div>
+
+        <!-- Chord Editing -->
+        <div class="section" id="guide-chord-editing">
+            <h3>Editing Chords &amp; Lyrics</h3>
+            <p>Tap the <strong>✎ Edit</strong> button to enter edit mode.</p>
+            <ul>
+                <li><strong>Change a chord:</strong> Tap any chord to open a popup with all chords used in the song. Select a different chord, type a custom chord, or delete it.</li>
+                <li><strong>Add a chord:</strong> Tap any lyric word or space to insert a new chord at that position.</li>
+                <li><strong>Edit key &amp; tempo:</strong> In edit mode, the key and tempo fields become editable text inputs.</li>
+                <li><strong>Reset:</strong> If you've made changes, a <strong>Reset</strong> button appears to revert to the original version.</li>
+            </ul>
+            <p>Tap <strong>✓ Done</strong> to exit edit mode. All edits are saved automatically.</p>
+        </div>
+
+        <!-- Auto-Scroll -->
+        <div class="section" id="guide-auto-scroll">
+            <h3>Auto-Scroll</h3>
+            <p>Tap the green <strong>Scroll</strong> button to start automatic scrolling from the top to the bottom of the song. The scroll takes about 3 minutes.</p>
+            <p>If you manually scroll, touch the screen, or press a key, auto-scroll pauses for 2 seconds then resumes. Tap the red <strong>Stop</strong> button to end scrolling.</p>
+        </div>
+
+        <!-- Tempo Flash -->
+        <div class="section" id="guide-tempo">
+            <h3>Tempo Flash</h3>
+            <p>If a song has a tempo set (e.g. <code>{tempo: 120}</code>), a <strong>Tempo</strong> button appears next to the key. Tap it to flash the navigation bar in time with the beat — useful for counting in.</p>
+            <p>Tap again to stop the flash. It also stops automatically when you change songs.</p>
+        </div>
+
+        <!-- Stave -->
+        <div class="section" id="guide-stave">
+            <h3>Musical Stave (Notation)</h3>
+            <p>Add a line of musical notation above any song by tapping the <strong>+Stave</strong> button (or <strong>✎ Stave</strong> to edit an existing one).</p>
+            <p>The stave editor lets you:</p>
+            <ul>
+                <li>Choose a <strong>time signature</strong> (4/4, or 6/8)</li>
+                <li>Select note <strong>duration</strong> — from semibreve to semiquaver, with dotted and tied options</li>
+                <li>Set <strong>accidentals</strong> (sharp, flat, natural)</li>
+                <li>Change <strong>octave</strong> (8va up, 8vb down)</li>
+                <li>Add <strong>barlines</strong> and <strong>rests</strong></li>
+                <li>Enter notes using the <strong>pitch buttons</strong> (scale-aware for the song's key)</li>
+            </ul>
+            <p>The stave is rendered as standard musical notation and transposes along with the song's chords when you change key.</p>
+        </div>
+
+        <!-- Comments -->
+        <div class="section" id="guide-comments">
+            <h3>Comments &amp; Annotations</h3>
+            <p>Tap <strong>+Comment</strong> to add a personal note to a song — for example, performance reminders, capo positions, or arrangement notes.</p>
+            <p>Comments are displayed in a highlighted box above the song. Tap <strong>✎ Comment</strong> to edit or remove an existing comment.</p>
+        </div>
+
+        <!-- Sets -->
+        <div class="section" id="guide-sets">
+            <h3>Sets (Setlists)</h3>
+            <p>A <strong>set</strong> is a collection of songs in a specific order — perfect for gigs or practice sessions.</p>
+            <ul>
+                <li><strong>New Set:</strong> Clears the current set to start fresh.</li>
+                <li><strong>Save Set:</strong> Saves the current set with a name. You can overwrite an existing set or create a new one.</li>
+                <li><strong>Load Set:</strong> Opens a picker showing all saved sets with their song counts. You can also delete sets from this picker.</li>
+                <li><strong>Import Set:</strong> Load a <code>.stagechord.json</code> set file. Songs are added to your library and the set is created automatically.</li>
+            </ul>
+            <p>Your current set (song order and position) is automatically remembered between sessions, even without saving.</p>
+        </div>
+
+        <!-- Sharing -->
+        <div class="section" id="guide-sharing">
+            <h3>Sharing Sets</h3>
+            <p>Share your setlist with bandmates in two ways:</p>
+            <ul>
+                <li><strong>Share as Link:</strong> Generates a URL containing the entire set (compressed). Send the link via messaging — recipients open it in their browser and the set imports automatically. Note: very large sets may exceed URL length limits.</li>
+                <li><strong>Share as File:</strong> Sends a <code>.stagechord.json</code> file via your device's share menu (or downloads it). The recipient imports it through the menu.</li>
+            </ul>
+        </div>
+
+
+        <!-- Library -->
+        <div class="section" id="guide-library">
+            <h3>Song Library</h3>
+            <p>Your <strong>library</strong> contains all songs you've added or imported. From the menu:</p>
+            <ul>
+                <li><strong>Add Songs to Library:</strong> Import <code>.chopro</code> or text files from your device.</li>
+                <li><strong>Browse Library:</strong> View all songs, select which to add to your current set, or delete songs you no longer need.</li>
+            </ul>
+            <p>Songs in the library persist until you delete them. Transpose settings, staves, and edits are saved per song.</p>
+        </div>
+
+        <!-- Import & Export -->
+        <div class="section" id="guide-import-export">
+            <h3>Import &amp; Export</h3>
+            <h4 style="margin-top:0.6rem;">Library</h4>
+            <ul>
+                <li><strong>Export Library:</strong> Downloads your entire library as a <code>.json</code> file — includes all songs, transpose settings, staves, and edits. Great for backups.</li>
+                <li><strong>Import Library:</strong> Loads a previously exported library file. You'll be asked whether to <strong>add</strong> alongside existing songs, <strong>replace</strong> your library entirely, or <strong>export</strong> a backup first. Duplicate songs (identical content) are automatically skipped.</li>
+            </ul>
+        </div>
+
+        <!-- Install -->
+        <div class="section" id="guide-install">
+            <h3>Installing as an App</h3>
+            <p>StageChord can be installed on your device for quick access and offline use:</p>
+            <ul>
+                <li><strong>Android:</strong> Tap the browser menu (⋮) → "Add to Home screen", or use the <strong>Add as App</strong> option in the ☰ Manage menu.</li>
+                <li><strong>iPhone / iPad:</strong> Tap the Share button (⬆) → "Add to Home Screen".</li>
+            </ul>
+            <p>Once installed, the app works fully offline — your songs and settings are stored on your device.</p>
+        </div>
+
+        <hr style="margin: 2rem 0 1rem; border: none; border-top: 1px solid #ddd;">
+        <p style="text-align: center; color: #888; font-size: 0.85rem;">
+            <a href="mailto:stagechord@spradbery.com" style="color: #2f7d6c; text-decoration: none;">Contact: stagechord@spradbery.com</a>
+        </p>
+    </main>
+
+    <script>
+        function importLib(url) {
+            // Store pending import in localStorage, then navigate to app
+            localStorage.setItem('stagechord_pending_import', url);
+            window.location.href = 'index.html';
+        }
+
+        function checkForNew() {
+            // Bypass service worker and browser caches to get the latest page
+            fetch('help.html', { cache: 'no-store' })
+                .then(r => { if (!r.ok) throw new Error('Network error'); return r.text(); })
+                .then(html => {
+                    // Also update the service worker cache
+                    if ('caches' in window) {
+                        caches.keys().then(keys => {
+                            keys.forEach(k => caches.open(k).then(c =>
+                                c.put(new Request('help.html'), new Response(html, {
+                                    headers: { 'Content-Type': 'text/html' }
+                                }))
+                            ));
+                        });
+                    }
+                    document.open();
+                    document.write(html);
+                    document.close();
+                })
+                .catch(() => alert('Could not check for updates. Are you online?'));
+        }
+    </script>
+</body>
+</html>

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StageChord</title>
-    <link rel="stylesheet" href="styles.css?v=20260310T1">
+    <link rel="stylesheet" href="styles.css?v=20260310T2">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2f7d6c">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -44,9 +44,15 @@
         <div class="menu-section">
             <button id="menu-install-app" type="button" class="hidden">Add as App</button>
         </div>
-        <input type="file" id="file-input" multiple class="hidden">
-        <input type="file" id="import-library-input" accept=".json" class="hidden">
-        <input type="file" id="import-set-input" accept=".json" class="hidden">
+        <div class="menu-section menu-contact">
+            <a href="help.html" id="menu-songs-help">Songs &amp; Help</a>
+        </div>
+        <div class="menu-section menu-contact">
+            <a href="mailto:stagechord@spradbery.com">Contact</a>
+        </div>
+        <input type="file" id="file-input" multiple accept="*/*" class="file-input-offscreen">
+        <input type="file" id="import-library-input" accept=".json" class="file-input-offscreen">
+        <input type="file" id="import-set-input" accept=".json" class="file-input-offscreen">
     </nav>
 
     <main>
@@ -68,6 +74,7 @@
             <div id="song-meta-row">
                 <div id="current-song-title"></div>
                 <div id="current-song-key"></div>
+                <div id="song-btn-row"></div>
             </div>
         </section>
 
@@ -76,9 +83,10 @@
                 <button id="prev-btn" disabled>Prev Song</button>
                 <button id="next-btn" disabled>Next Song</button>
             </div>
-            <button id="autoscroll-btn">Auto Scroll</button>
+            <button id="autoscroll-btn">Scroll</button>
             <div id="section-jumps"></div>
         </div>
+        <div id="edit-tip" class="edit-tip hidden">click chord / lyric to edit</div>
 
         <section id="song-view"></section>
     </main>
@@ -125,7 +133,7 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=20260310T1"></script>
+    <script type="module" src="app.js?v=20260310T2"></script>
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./service-worker.js');

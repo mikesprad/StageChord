@@ -4,7 +4,7 @@
   "description": "Lightweight ChordPro renderer",
   "main": "app.js",
   "type": "module",
- "homepage": "https://mikesprad.github.io/StageChord/",
+  "homepage": "https://github.com/mikesprad/StageChord",
   "scripts": {
     "test": "jest"
   },

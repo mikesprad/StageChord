@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "exportedAt": "2026-03-10T00:00:00.000Z",
+  "songs": [
+    {
+      "filename": "Amazing Grace.chopro",
+      "originalText": "{title: Amazing Grace}\n{key: G}\n{tempo: 80}\n\nVerse 1:\n[G]Amazing [G7]grace, how [C]sweet the [G]sound,\nThat [G]saved a [Em]wretch like [D]me.\n[G]I once [G7]was lost, but [C]now am [G]found,\nWas [G]blind, but [D]now I [G]see.\n\nVerse 2:\n[G]'Twas grace [G7]that taught my [C]heart to [G]fear,\nAnd [G]grace my [Em]fears re[D]lieved.\n[G]How precious [G7]did that [C]grace ap[G]pear\nThe [G]hour I [D]first be[G]lieved."
+    },
+    {
+      "filename": "Stand By Me.chopro",
+      "originalText": "{title: Stand By Me}\n{key: A}\n{tempo: 120}\n\nVerse:\n[A]When the night has come\n[F#m]And the land is dark\n[D]And the [E]moon is the [A]only light we'll see\n\nChorus:\n[A]No I won't be afraid\n[F#m]Oh I won't be afraid\n[D]Just as [E]long as you [A]stand by me"
+    }
+  ]
+}

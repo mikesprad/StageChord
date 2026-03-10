@@ -1,8 +1,9 @@
 // StageChord Service Worker
-const CACHE_VERSION = 'sv-v1';
+const CACHE_VERSION = 'sv-v7';
 const APP_ASSETS = [
     './',
     './index.html',
+    './help.html',
     './app.js',
     './parser.js',
     './stave.js',
@@ -10,7 +11,8 @@ const APP_ASSETS = [
     './styles.css',
     './manifest.json',
     './icons/icon-192.png',
-    './icons/icon-512.png'
+    './icons/icon-512.png',
+    './vexflow.bundle.js'
 ];
 
 // Cache app shell on install

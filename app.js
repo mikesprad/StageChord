@@ -1,12 +1,12 @@
-import { parseChordPro } from './parser.js?v=20260310T1';
-import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20260310T1';
+import { parseChordPro } from './parser.js?v=20260310T2';
+import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20260310T2';
 import {
     addSong, getSong, getAllSongs, deleteSong,
     getSongState, saveSongState,
     saveSetlist, getSetlist, getAllSetlists, deleteSetlist,
     exportLibrary, importLibrary,
     exportSetlist, importSetlist
-} from './db.js?v=20260310T1';
+} from './db.js?v=20260310T2';
 
 const notesPreferred = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 const sharpNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -48,11 +48,14 @@ function clearSet() {
     currentSetlistId = null;
     chordEditMode = false;
     dismissChordPopup();
+    stopTempoFlash();
     saveSessionRef();
     fileSelect.innerHTML = '';
     songView.innerHTML = '';
     if (currentSongTitle) currentSongTitle.textContent = '';
     if (currentSongKey) currentSongKey.innerHTML = '';
+    const songBtnRow = document.getElementById('song-btn-row');
+    if (songBtnRow) songBtnRow.innerHTML = '';
     sectionJumps.innerHTML = '';
     prevBtn.disabled = true;
     nextBtn.disabled = true;
@@ -297,8 +300,8 @@ document.getElementById('menu-new-set').addEventListener('click', () => {
 });
 
 document.getElementById('menu-add-songs').addEventListener('click', () => {
-    closeMenu();
     fileInput.click();
+    closeMenu();
 });
 
 document.getElementById('menu-browse-library').addEventListener('click', () => {
@@ -350,10 +353,10 @@ document.getElementById('menu-install-app').addEventListener('click', async () =
             document.getElementById('menu-install-app').classList.add('hidden');
         }
     } else {
-        // Fallback instructions for iOS Safari
+        // Fallback instructions for iOS / Android
         alert('To install StageChord:\n\n'
-            + 'iOS Safari: Tap the Share button (⬆) then "Add to Home Screen"\n\n'
-            + 'Android Chrome: Tap the browser menu (⋮) then "Add to Home screen"');
+            + 'iOS (Apple): Tap the Share button (⬆) then "Add to Home Screen"\n\n'
+            + 'Android: Tap the browser menu (⋮) then "Add to Home screen"');
     }
 });
 
@@ -460,6 +463,29 @@ importSetInput.addEventListener('change', async () => {
 // ── Import setlist from URL hash ─────────────────────
 async function importFromUrlHash() {
     const hash = location.hash;
+
+    // Handle song library import from Songs & Help page (localStorage or hash fallback)
+    let libUrl = localStorage.getItem('stagechord_pending_import');
+    if (libUrl) {
+        localStorage.removeItem('stagechord_pending_import');
+    } else if (hash.startsWith('#importlib=')) {
+        libUrl = decodeURIComponent(hash.slice('#importlib='.length));
+        history.replaceState(null, '', location.pathname + location.search);
+    }
+    if (libUrl) {
+        try {
+            const resp = await fetch(libUrl);
+            if (!resp.ok) throw new Error('Could not fetch library file');
+            const data = await resp.json();
+            const result = await importLibrary(data);
+            alert(`Imported ${result.imported} song(s), ${result.skipped} skipped.`);
+            return false; // still restore session normally
+        } catch (e) {
+            alert('Failed to import song library: ' + e.message);
+            return false;
+        }
+    }
+
     if (!hash.startsWith('#setlist=')) return false;
     const b64url = hash.slice('#setlist='.length);
     if (!b64url) return false;
@@ -487,12 +513,24 @@ importFromUrlHash().then(imported => {
         return;
     }
     return restoreSession();
-}).then((restored) => {
+}).then(async (restored) => {
     if (restored) {
         populateSelect();
         fileSelect.selectedIndex = currentIndex;
         renderCurrent();
         updateNav();
+    }
+    // If running as an installed PWA with an empty library, let user know
+    if (isStandalone) {
+        const allSongs = await getAllSongs();
+        if (allSongs.length === 0) {
+            alert(
+                'Your song library is empty.\n\n'
+                + 'If you previously used StageChord in a browser, you can transfer your library:\n\n'
+                + '1. In the browser: Menu → Export Library\n'
+                + '2. In this app: Menu → Import Library'
+            );
+        }
     }
 });
 
@@ -539,8 +577,7 @@ window.addEventListener('scroll', () => {
 }, { passive: true });
 
 function handleFiles() {
-    const allowedExtensions = /\.(chorpro|chopro|txt|pro|crd)$/i;
-    const files = Array.from(fileInput.files).filter((f) => allowedExtensions.test(f.name));
+    const files = Array.from(fileInput.files);
     const promises = files.map((file) => {
         return new Promise((resolve) => {
             const reader = new FileReader();
@@ -581,8 +618,8 @@ function handleFiles() {
         renderCurrent();
         updateNav();
         saveSessionRef();
+        fileInput.value = '';
     });
-    fileInput.value = '';
 }
 
 function populateSelect() {
@@ -723,6 +760,9 @@ function renderSectionButtons(lastSectionAnchors) {
 function renderCurrent() {
     if (currentIndex < 0 || currentIndex >= songs.length) return;
     dismissChordPopup();
+    stopTempoFlash();
+    const editTip = document.getElementById('edit-tip');
+    if (editTip) editTip.classList.toggle('hidden', !chordEditMode);
     const song = songs[currentIndex];
     if (!song.transpose) song.transpose = 0;
     songView.innerHTML = '';
@@ -795,14 +835,18 @@ function renderCurrent() {
         if (currentSongKey) currentSongKey.appendChild(upBtn);
 
         if (parsed.metadata.tempo) {
-            const tempoSpan = document.createElement('span');
-            tempoSpan.className = 'tempo-info';
-            tempoSpan.textContent = `   Tempo: ${parsed.metadata.tempo}`;
-            if (currentSongKey) currentSongKey.appendChild(tempoSpan);
+            const tempoBtn = document.createElement('button');
+            tempoBtn.className = 'tempo-btn';
+            tempoBtn.textContent = `Tempo: ${parsed.metadata.tempo}`;
+            tempoBtn.title = 'Click for tempo flash';
+            tempoBtn.addEventListener('click', () => {
+                flashTempoOnNav(parseInt(parsed.metadata.tempo, 10));
+            });
+            if (currentSongKey) currentSongKey.appendChild(tempoBtn);
         }
     }
 
-    // Button group for +Comment and +Stave — wrapped together so they don't split when wrapping
+    // Button group for +Comment, +Stave, Edit — on its own row
     const btnGroup = document.createElement('span');
     btnGroup.className = 'meta-btn-group';
 
@@ -821,7 +865,11 @@ function renderCurrent() {
     staveBtn.textContent = song.stave ? '✎ Stave' : '+Stave';
     staveBtn.className = 'annotate-btn';
     staveBtn.title = song.stave ? 'Edit stave' : 'Add a stave';
-    if (currentSongKey) currentSongKey.appendChild(btnGroup);
+    const songBtnRow = document.getElementById('song-btn-row');
+    if (songBtnRow) {
+        songBtnRow.innerHTML = '';
+        songBtnRow.appendChild(btnGroup);
+    }
     staveBtn.addEventListener('click', async () => {
         const editorNotes = song.stave && song.transpose
             ? transposeStaveNotes(song.stave, song.transpose, transposedKeyName)
@@ -838,14 +886,20 @@ function renderCurrent() {
     });
     btnGroup.appendChild(staveBtn);
 
-    // Edit Chords button
+    // Edit button (chords, key, tempo)
     const editChordsBtn = document.createElement('button');
-    editChordsBtn.textContent = chordEditMode ? '✓ Save Edits' : '✎ Edit Chords';
+    editChordsBtn.textContent = chordEditMode ? '✓ Done' : '✎ Edit';
     editChordsBtn.className = 'annotate-btn' + (chordEditMode ? ' active-edit' : '');
-    editChordsBtn.title = 'Edit chords inline';
+    editChordsBtn.title = 'Edit chords, key and tempo';
     editChordsBtn.addEventListener('click', () => {
+        // If leaving edit mode, save key/tempo from input fields
+        if (chordEditMode) {
+            saveEditMetaFields(song);
+        }
         chordEditMode = !chordEditMode;
         dismissChordPopup();
+        const editTip = document.getElementById('edit-tip');
+        if (editTip) editTip.classList.toggle('hidden', !chordEditMode);
         renderCurrent();
     });
     btnGroup.appendChild(editChordsBtn);
@@ -853,7 +907,7 @@ function renderCurrent() {
     // Reset button — only show in edit mode if text differs from original
     if (chordEditMode && song.text !== song.originalText) {
         const resetBtn = document.createElement('button');
-        resetBtn.textContent = 'Reset Chords';
+        resetBtn.textContent = 'Reset';
         resetBtn.className = 'annotate-btn reset-btn';
         resetBtn.title = 'Revert all chord edits';
         resetBtn.addEventListener('click', async () => {
@@ -863,6 +917,51 @@ function renderCurrent() {
             renderCurrent();
         });
         btnGroup.appendChild(resetBtn);
+    }
+
+    // Key/Tempo editor — shown as first line in song view when in edit mode
+    if (chordEditMode) {
+        const editRow = document.createElement('div');
+        editRow.className = 'edit-meta-row';
+
+        // Key editor — blank for inferred keys so user can write the correct one
+        const keyLabel = document.createElement('label');
+        keyLabel.textContent = 'Key: ';
+        keyLabel.className = 'edit-meta-label';
+        const keyInput = document.createElement('input');
+        keyInput.type = 'text';
+        keyInput.className = 'edit-meta-input';
+        keyInput.id = 'edit-key-input';
+        keyInput.placeholder = hasKey ? transposedKeyName : 'e.g. G';
+        // Only pre-fill if key is explicitly set in the file (not inferred)
+        keyInput.value = (hasKey && !inferredKey) ? transposedKeyName : '';
+        keyInput.size = 4;
+        keyInput.addEventListener('change', () => {
+            saveEditMetaFields(song);
+        });
+        keyLabel.appendChild(keyInput);
+        editRow.appendChild(keyLabel);
+
+        // Tempo editor
+        const tempoLabel = document.createElement('label');
+        tempoLabel.textContent = 'Tempo: ';
+        tempoLabel.className = 'edit-meta-label';
+        const tempoInput = document.createElement('input');
+        tempoInput.type = 'number';
+        tempoInput.className = 'edit-meta-input';
+        tempoInput.id = 'edit-tempo-input';
+        tempoInput.placeholder = parsed.metadata.tempo || 'bpm';
+        tempoInput.value = parsed.metadata.tempo || '';
+        tempoInput.min = 20;
+        tempoInput.max = 300;
+        tempoInput.size = 5;
+        tempoInput.addEventListener('change', () => {
+            saveEditMetaFields(song);
+        });
+        tempoLabel.appendChild(tempoInput);
+        editRow.appendChild(tempoLabel);
+
+        songView.appendChild(editRow);
     }
 
     // Show annotation box if annotation exists
@@ -933,9 +1032,31 @@ function renderCurrent() {
         if (rawLine.trim().startsWith('|')) {
             const lineDiv = document.createElement('div');
             lineDiv.className = 'chord-line';
-            lineDiv.textContent = rawLine.replace(/\[([^\]]+)\]/g, (_, chord) => (
-                transposeChord(chord, song.transpose, transposedKeyName)
-            ));
+            if (chordEditMode) {
+                // Render bar line with editable chord spans
+                let chordCount = 0;
+                const parts = rawLine.split(/(\[[^\]]+\])/);
+                parts.forEach(part => {
+                    const chordMatch = part.match(/^\[([^\]]+)\]$/);
+                    if (chordMatch) {
+                        const ci = chordCount++;
+                        const chordSpan = document.createElement('span');
+                        chordSpan.className = 'chord-editable bar-chord';
+                        chordSpan.textContent = transposeChord(chordMatch[1], song.transpose, transposedKeyName);
+                        chordSpan.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            showChordPopup(e, song, lineIndex, ci, chordMatch[1], parsed, transposedKeyName);
+                        });
+                        lineDiv.appendChild(chordSpan);
+                    } else {
+                        lineDiv.appendChild(document.createTextNode(part));
+                    }
+                });
+            } else {
+                lineDiv.textContent = rawLine.replace(/\[([^\]]+)\]/g, (_, chord) => (
+                    transposeChord(chord, song.transpose, transposedKeyName)
+                ));
+            }
             songView.appendChild(lineDiv);
             previousRenderedType = 'bar';
             return;
@@ -1055,6 +1176,84 @@ function dismissChordPopup() {
         document.removeEventListener('click', chordPopupOutsideClickHandler);
         chordPopupOutsideClickHandler = null;
     }
+}
+
+// Save key/tempo from edit input fields into song text
+function saveEditMetaFields(song) {
+    const keyInput = document.getElementById('edit-key-input');
+    const tempoInput = document.getElementById('edit-tempo-input');
+    let changed = false;
+
+    if (keyInput) {
+        const newKey = keyInput.value.trim();
+        if (newKey) {
+            const keyMatch = newKey.match(/^([A-G][#b]?)/);
+            if (keyMatch) {
+                const displayKey = keyMatch[1];
+                const displayIndex = noteEnharmonics[displayKey];
+                if (displayIndex !== undefined) {
+                    const storedIndex = (displayIndex - (song.transpose || 0) + 12) % 12;
+                    const storedKeyName = getKeyNameForIndex(storedIndex);
+                    updateSongMetadata(song, 'key', storedKeyName);
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    if (tempoInput) {
+        const val = tempoInput.value.trim();
+        if (val && !isNaN(val) && val >= 20 && val <= 300) {
+            updateSongMetadata(song, 'tempo', val);
+            changed = true;
+        } else if (!val) {
+            // If cleared, remove tempo directive
+            const parsed = parseChordPro(song.text);
+            if (parsed.metadata.tempo) {
+                removeSongMetadata(song, 'tempo');
+                changed = true;
+            }
+        }
+    }
+
+    if (changed) {
+        saveSongStateToDB(song);
+    }
+}
+
+// Update or insert a metadata directive in the song text (e.g. {key: G}, {tempo: 120})
+function updateSongMetadata(song, directive, value) {
+    const lines = song.text.split(/\r?\n/);
+    const regex = new RegExp(`^\\{${directive}:\\s*.+?\\}$`, 'i');
+    let found = false;
+    for (let i = 0; i < lines.length; i++) {
+        if (regex.test(lines[i].trim())) {
+            lines[i] = `{${directive}: ${value}}`;
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        // Insert after last metadata line at top, or at very top
+        let insertAt = 0;
+        for (let i = 0; i < lines.length; i++) {
+            const t = lines[i].trim();
+            if (t.startsWith('{') && t.endsWith('}')) {
+                insertAt = i + 1;
+            } else {
+                break;
+            }
+        }
+        lines.splice(insertAt, 0, `{${directive}: ${value}}`);
+    }
+    song.text = lines.join('\n');
+}
+
+// Remove a metadata directive from the song text
+function removeSongMetadata(song, directive) {
+    const lines = song.text.split(/\r?\n/);
+    const regex = new RegExp(`^\\{${directive}:\\s*.+?\\}$`, 'i');
+    song.text = lines.filter(l => !regex.test(l.trim())).join('\n');
 }
 
 function extractSongChords(parsed, transpose, keyName) {
@@ -1304,7 +1503,7 @@ function startAutoScroll() {
     if (autoScrollActive) return;
     
     autoScrollActive = true;
-    autoscrollBtn.textContent = 'Stop Scroll';
+    autoscrollBtn.textContent = 'Stop';
     autoscrollBtn.style.backgroundColor = '#ff6b6b';
     
     resumeAutoScroll();
@@ -1377,9 +1576,49 @@ function stopAutoScroll() {
         clearTimeout(autoScrollPauseTimeout);
         autoScrollPauseTimeout = null;
     }
-    autoscrollBtn.textContent = 'Auto Scroll';
+    autoscrollBtn.textContent = 'Scroll';
     autoscrollBtn.style.backgroundColor = '';
 }
+
+// ── Tempo flash on nav bar ───────────────────────────
+let tempoFlashInterval = null;
+
+function flashTempoOnNav(bpm) {
+    const navRow = document.getElementById('sticky-nav-row');
+    if (!navRow || !bpm || bpm <= 0) return;
+
+    // If already flashing, stop it
+    if (tempoFlashInterval) {
+        stopTempoFlash();
+        return;
+    }
+
+    const intervalMs = 60000 / bpm;
+    const flashDuration = Math.min(100, intervalMs * 0.3);
+    tempoFlashInterval = setInterval(() => {
+        navRow.style.backgroundColor = '#ffe082';
+        setTimeout(() => {
+            navRow.style.backgroundColor = '';
+        }, flashDuration);
+    }, intervalMs);
+}
+
+function stopTempoFlash() {
+    if (tempoFlashInterval) {
+        clearInterval(tempoFlashInterval);
+        tempoFlashInterval = null;
+        const navRow = document.getElementById('sticky-nav-row');
+        if (navRow) navRow.style.backgroundColor = '';
+    }
+}
+
+// ── Usage tracking (silent) ──────────────────────────
+(function trackUsage() {
+    try {
+        const img = new Image();
+        img.src = 'https://spradbery.com/stagechord/ping.gif?t=' + encodeURIComponent(Date.now());
+    } catch (_) { /* silently ignore */ }
+})();
 
 // ── Helper: download JSON as file ────────────────────
 

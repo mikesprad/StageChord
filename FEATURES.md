@@ -98,13 +98,32 @@ Pre-load a curated song library with the app, so users don't start from scratch.
 ### Considerations
 - Library JSON is the same format as "Export Library" produces.
 - Updates are easy: edit the hosted file, users re-import to get new songs.
+
+---
+
+## 7. Quick UI Improvements
+**Status:** Complete  
+**Effort:** Low  
+**Dependencies:** None  
+
+A collection of small UX enhancements:
+
+- **Scroll button label:** Renamed "Auto Scroll" to "Scroll" (and "Stop Scroll" to "Stop") to save nav bar space.
+- **Edit tip:** When Edit mode is active, a small italic hint ("click chord / lyric to edit") appears below the sticky nav bar.
+- **Tempo flash:** Clicking the tempo indicator (e.g. "Tempo: 120") flashes the sticky nav bar at the song's BPM as a visual metronome. Continues until clicked again or a new song is selected.
+- **Contact email:** A "Contact" mailto link (`stagechord@spradbery.com`) is shown at the bottom of the Manage menu.
+- **Usage tracking:** A silent 1×1 tracking pixel is requested on app load (`https://spradbery.com/stagechord/ping.gif`) to count usage. Fails silently if offline — no errors shown to the user.
+- **Button row:** Comment, Stave, and Edit buttons are on their own line below the key/tempo info for a cleaner layout.
+- **Edit mode (key/tempo):** The "Edit" button (formerly "Edit Chords") now also exposes inline Key and Tempo fields. Editing the key respects the current transpose offset — the stored key is un-transposed before writing back to the ChordPro `{key:}` directive. Tempo is written as `{tempo:}`. Both are standard ChordPro metadata directives.
 - Could auto-import on first visit (empty IndexedDB) for zero-friction onboarding.
 
 ---
 
 ## Priority Order (suggested)
-1. **#1 PWA** — quick win, big usability improvement
-2. **#3 Online directory** — enables simpler sharing
-3. **#6 Packaged library** — pre-load songs with the app
-4. **#4 Musical stave refinements** — already complete, but room for UX polish
-4. **#5 Chord editing** — based on user priority
+1. **#1 PWA** ✅ Complete
+2. **#2 Session Sharing** ✅ Complete
+3. **#4 Musical Stave** ✅ Complete
+4. **#5 In-App Chord Editing** ✅ Complete
+5. **#7 Quick UI Improvements** ✅ Complete
+6. **#3 Online Song Directory** — Planned
+7. **#6 Packaged Song Library** — Planned

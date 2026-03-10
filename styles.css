@@ -129,6 +129,17 @@ main {
 .menu-section button:active {
   background: #eee;
 }
+.menu-contact {
+  padding: 0.6rem 1rem;
+  font-size: 0.8rem;
+}
+.menu-contact a {
+  color: #2f7d6c;
+  text-decoration: none;
+}
+.menu-contact a:hover {
+  text-decoration: underline;
+}
 
 /* ── Modals (library browser, load set, save set) ── */
 #library-modal,
@@ -284,6 +295,13 @@ main {
 .hidden {
   display: none !important;
 }
+.file-input-offscreen {
+  position: absolute;
+  left: -9999px;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
 #song-order-collapsed {
   display: flex;
   align-items: center;
@@ -361,6 +379,9 @@ main {
 #current-song-key {
   font-size: 1rem;
 }
+#song-btn-row {
+  flex-basis: 100%;
+}
 #sticky-nav-row {
   position: -webkit-sticky;
   position: sticky;
@@ -413,6 +434,19 @@ main {
 #autoscroll-btn:hover {
   background-color: #45a049;
 }
+.edit-tip {
+  font-size: 0.7rem;
+  color: #888;
+  font-style: italic;
+  white-space: nowrap;
+  padding: 0.15rem 1rem;
+  background: #fafafa;
+  border-bottom: 1px solid #e0e0e0;
+  margin: 0 -1rem;
+}
+#sticky-nav-row {
+  transition: background-color 0.08s;
+}
 #song-view {
   margin-top: 1rem;
   padding-bottom: 20vh;
@@ -433,10 +467,11 @@ main {
   font-size: 1rem;
   cursor: pointer;
 }
-.tempo-info {
-  margin-left: 0.8rem;
-  font-size: 0.75rem;
-  color: #666;
+.tempo-btn {
+  margin-left: 0.5rem;
+}
+.tempo-btn:hover {
+  background: #eee;
 }
 .chord-line {
   font-weight: bold;
@@ -485,12 +520,13 @@ main {
   display: inline-block;
 }
 .meta-btn-group {
-  display: inline-flex;
+  display: flex;
   gap: 0.25rem;
   white-space: nowrap;
+  margin-top: 0.3rem;
 }
 .annotate-btn {
-  margin-left: 0.5rem;
+  margin-left: 0;
   padding: 0.15rem 0.45rem;
   font-size: 0.85rem;
   font-weight: 700;
@@ -502,6 +538,28 @@ main {
 }
 .annotate-btn:hover {
   background: #eee;
+}
+.edit-meta-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.4rem 0;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px dashed #ccc;
+}
+.edit-meta-label {
+  font-size: 0.85rem;
+  color: #555;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.edit-meta-input {
+  padding: 0.15rem 0.3rem;
+  font-size: 0.85rem;
+  border: 1px solid #999;
+  border-radius: 3px;
+  width: 4rem;
 }
 .annotation-box {
   background: #fff9e6;
