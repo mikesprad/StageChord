@@ -1650,6 +1650,11 @@ libraryModalOverlay.addEventListener('click', closeLibraryModal);
 
 async function openLibraryBrowser() {
     const allSongs = await getAllSongs();
+    allSongs.sort((a, b) => {
+        const titleA = parseChordPro(a.originalText).metadata.title || a.filename.replace(/\.[^.]+$/, '');
+        const titleB = parseChordPro(b.originalText).metadata.title || b.filename.replace(/\.[^.]+$/, '');
+        return titleA.localeCompare(titleB);
+    });
     librarySongList.innerHTML = '';
 
     if (allSongs.length === 0) {
