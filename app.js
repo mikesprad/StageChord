@@ -1,12 +1,12 @@
-import { parseChordPro } from './parser.js?v=20260310T2';
-import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20260310T2';
+import { parseChordPro } from './parser.js?v=20260415T1';
+import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20260415T1';
 import {
     addSong, getSong, getAllSongs, deleteSong,
     getSongState, saveSongState,
     saveSetlist, getSetlist, getAllSetlists, deleteSetlist,
     exportLibrary, importLibrary,
     exportSetlist, importSetlist
-} from './db.js?v=20260310T2';
+} from './db.js?v=20260415T1';
 
 const notesPreferred = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 const sharpNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -234,6 +234,19 @@ const menuPanel = document.getElementById('menu-panel');
 const menuCloseBtn = document.getElementById('menu-close-btn');
 const importLibraryInput = document.getElementById('import-library-input');
 const importSetInput = document.getElementById('import-set-input');
+const compatActions = document.getElementById('compat-actions');
+const fallbackAddSongsBtn = document.getElementById('fallback-add-songs');
+const fallbackBrowseLibraryBtn = document.getElementById('fallback-browse-library');
+const fontDecreaseBtn = document.getElementById('font-decrease-btn');
+const fontIncreaseBtn = document.getElementById('font-increase-btn');
+const checkUpdateBtn = document.getElementById('menu-check-update');
+
+const FONT_SIZE_KEY = 'stagechord_font_size';
+const MIN_FONT_SIZE = 0.8;
+const MAX_FONT_SIZE = 1.6;
+const FONT_SIZE_STEP = 0.1;
+let songFontSize = parseFloat(localStorage.getItem(FONT_SIZE_KEY)) || 1;
+let menuTouchActive = false;
 
 const sectionButtonConfig = [
     { key: 'verse', label: 'V' },
@@ -271,9 +284,27 @@ function closeMenu() {
     menuPanel.classList.add('hidden');
     menuOverlay.classList.add('hidden');
 }
-menuBtn.addEventListener('click', openMenu);
-menuCloseBtn.addEventListener('click', closeMenu);
-menuOverlay.addEventListener('click', closeMenu);
+if (menuBtn) {
+    menuBtn.addEventListener('touchstart', () => {
+        menuTouchActive = true;
+        openMenu();
+    }, { passive: true });
+    menuBtn.addEventListener('click', () => {
+        if (menuTouchActive) {
+            menuTouchActive = false;
+            return;
+        }
+        openMenu();
+    });
+}
+if (menuCloseBtn) {
+    menuCloseBtn.addEventListener('touchstart', closeMenu, { passive: true });
+    menuCloseBtn.addEventListener('click', closeMenu);
+}
+if (menuOverlay) {
+    menuOverlay.addEventListener('touchstart', closeMenu, { passive: true });
+    menuOverlay.addEventListener('click', closeMenu);
+}
 
 // Prompt user to save current set before a destructive action.
 // Returns true if the user wants to proceed, false to cancel.
@@ -309,6 +340,72 @@ document.getElementById('menu-browse-library').addEventListener('click', () => {
     openLibraryBrowser();
 });
 
+if (fallbackAddSongsBtn) {
+    fallbackAddSongsBtn.addEventListener('click', () => {
+        fileInput.click();
+    });
+}
+if (fallbackBrowseLibraryBtn) {
+    fallbackBrowseLibraryBtn.addEventListener('click', () => {
+        openLibraryBrowser();
+    });
+}
+
+if (fontDecreaseBtn) {
+    fontDecreaseBtn.addEventListener('click', () => adjustFontSize(-FONT_SIZE_STEP));
+}
+if (fontIncreaseBtn) {
+    fontIncreaseBtn.addEventListener('click', () => adjustFontSize(FONT_SIZE_STEP));
+}
+
+if (checkUpdateBtn) {
+    checkUpdateBtn.addEventListener('click', async (event) => {
+        event.preventDefault();
+        closeMenu();
+        await runUpdateCheck();
+    });
+}
+
+async function clearAppCaches() {
+    if (!('caches' in window)) return;
+    try {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+    } catch (e) {
+        console.warn('Failed to clear caches during update check', e);
+    }
+}
+
+async function runUpdateCheck() {
+    try {
+        if ('serviceWorker' in navigator) {
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (registration) {
+                await registration.update();
+            }
+        }
+        await clearAppCaches();
+        alert('Checked for updates and cleared cached app files. Reloading now.');
+    } catch (error) {
+        console.warn('Update check failed:', error);
+        alert('Unable to complete update check. Reloading anyway.');
+    }
+    window.location.reload();
+}
+
+function applyFontSize(size) {
+    const clamped = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, size));
+    songFontSize = clamped;
+    document.documentElement.style.setProperty('--song-font-size', `${songFontSize.toFixed(2)}rem`);
+    localStorage.setItem(FONT_SIZE_KEY, songFontSize.toString());
+}
+
+function adjustFontSize(delta) {
+    applyFontSize(songFontSize + delta);
+}
+
+applyFontSize(songFontSize);
+
 document.getElementById('menu-export-library').addEventListener('click', async () => {
     closeMenu();
     const data = await exportLibrary();
@@ -328,6 +425,10 @@ const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 if (isIOS && !isStandalone) {
     const installBtn = document.getElementById('menu-install-app');
     if (installBtn) installBtn.classList.remove('hidden');
+}
+
+if (isIOS && compatActions) {
+    compatActions.classList.remove('hidden');
 }
 
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -678,17 +779,27 @@ function renderReorderList() {
         btnWrap.className = 'reorder-btn-wrap';
 
         const upBtn = document.createElement('button');
+        upBtn.type = 'button';
         upBtn.textContent = '↑';
         upBtn.disabled = idx === 0;
         upBtn.addEventListener('click', () => reorderSong(idx, -1));
 
         const downBtn = document.createElement('button');
+        downBtn.type = 'button';
         downBtn.textContent = '↓';
         downBtn.disabled = idx === songs.length - 1;
         downBtn.addEventListener('click', () => reorderSong(idx, 1));
 
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'remove-song';
+        removeBtn.textContent = '🗑';
+        removeBtn.title = 'Remove song from set';
+        removeBtn.addEventListener('click', () => removeSongFromSet(idx));
+
         btnWrap.appendChild(upBtn);
         btnWrap.appendChild(downBtn);
+        btnWrap.appendChild(removeBtn);
         li.appendChild(titleSpan);
         li.appendChild(btnWrap);
         songReorderList.appendChild(li);
@@ -702,6 +813,20 @@ function reorderSong(idx, delta) {
     // Keep currentIndex tracking the same song
     if (currentIndex === idx) currentIndex = newIdx;
     else if (currentIndex === newIdx) currentIndex = idx;
+    renderReorderList();
+}
+
+function removeSongFromSet(idx) {
+    if (idx < 0 || idx >= songs.length) return;
+    if (!confirm('Remove this song from the current set?')) return;
+    songs.splice(idx, 1);
+    if (songs.length === 0) {
+        currentIndex = -1;
+    } else if (currentIndex === idx) {
+        currentIndex = Math.min(idx, songs.length - 1);
+    } else if (currentIndex > idx) {
+        currentIndex -= 1;
+    }
     renderReorderList();
 }
 
@@ -836,11 +961,14 @@ function renderCurrent() {
 
         if (parsed.metadata.tempo) {
             const tempoBtn = document.createElement('button');
+            tempoBtn.type = 'button';
             tempoBtn.className = 'tempo-btn';
             tempoBtn.textContent = `Tempo: ${parsed.metadata.tempo}`;
             tempoBtn.title = 'Click for tempo flash';
             tempoBtn.addEventListener('click', () => {
-                flashTempoOnNav(parseInt(parsed.metadata.tempo, 10));
+                const bpm = Number(parsed.metadata.tempo);
+                if (!Number.isFinite(bpm) || bpm <= 0) return;
+                flashTempoOnNav(bpm);
             });
             if (currentSongKey) currentSongKey.appendChild(tempoBtn);
         }
@@ -1585,7 +1713,7 @@ let tempoFlashInterval = null;
 
 function flashTempoOnNav(bpm) {
     const navRow = document.getElementById('sticky-nav-row');
-    if (!navRow || !bpm || bpm <= 0) return;
+    if (!navRow || !Number.isFinite(bpm) || bpm <= 0) return;
 
     // If already flashing, stop it
     if (tempoFlashInterval) {
@@ -1594,6 +1722,8 @@ function flashTempoOnNav(bpm) {
     }
 
     const intervalMs = 60000 / bpm;
+    if (!Number.isFinite(intervalMs) || intervalMs <= 0) return;
+
     const flashDuration = Math.min(100, intervalMs * 0.3);
     tempoFlashInterval = setInterval(() => {
         navRow.style.backgroundColor = '#ffe082';

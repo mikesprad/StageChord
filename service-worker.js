@@ -1,5 +1,5 @@
 // StageChord Service Worker
-const CACHE_VERSION = 'sv-v7';
+const CACHE_VERSION = 'sv-v8';
 const APP_ASSETS = [
     './',
     './index.html',

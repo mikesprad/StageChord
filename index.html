@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StageChord</title>
-    <link rel="stylesheet" href="styles.css?v=20260310T2">
+    <link rel="stylesheet" href="styles.css?v=20260415T1">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2f7d6c">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -37,7 +37,7 @@
         <div class="menu-section">
             <div class="menu-section-title">Library</div>
             <button id="menu-add-songs" type="button">Add Songs to Library</button>
-            <button id="menu-browse-library" type="button">Browse Library</button>
+            <button id="menu-browse-library" type="button">Add Songs to Set</button>
             <button id="menu-export-library" type="button">Export Library</button>
             <button id="menu-import-library" type="button">Import Library</button>
         </div>
@@ -46,6 +46,9 @@
         </div>
         <div class="menu-section menu-contact">
             <a href="help.html" id="menu-songs-help">Songs &amp; Help</a>
+        </div>
+        <div class="menu-section menu-contact">
+            <a href="#" id="menu-check-update">Check for Update</a>
         </div>
         <div class="menu-section menu-contact">
             <a href="mailto:stagechord@spradbery.com">Contact</a>
@@ -59,7 +62,7 @@
         <section id="controls">
             <div id="song-order-row">
                 <div id="song-order-collapsed">
-                    <button id="song-order-btn" type="button">Song Order</button>
+                    <button id="song-order-btn" type="button">Manage Set</button>
                     <select id="file-select" size="1"></select>
                 </div>
                 <div id="song-order-expanded" class="hidden">
@@ -71,9 +74,18 @@
                 </div>
             </div>
 
+            <div id="compat-actions" class="compat-actions hidden">
+                <button id="fallback-add-songs" type="button">+ Add Songs</button>
+                <button id="fallback-browse-library" type="button">Library</button>
+            </div>
+
             <div id="song-meta-row">
                 <div id="current-song-title"></div>
                 <div id="current-song-key"></div>
+                <div id="font-size-controls" class="font-size-controls">
+                    <button id="font-decrease-btn" type="button" title="Smaller text">A-</button>
+                    <button id="font-increase-btn" type="button" title="Larger text">A+</button>
+                </div>
                 <div id="song-btn-row"></div>
             </div>
         </section>
@@ -133,7 +145,7 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=20260310T2"></script>
+    <script type="module" src="app.js?v=20260415T1"></script>
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./service-worker.js');
