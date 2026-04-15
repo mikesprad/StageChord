@@ -12,6 +12,7 @@ The full implementation notes are preserved in `IMPLEMENTED_FEATURE_DETAILS.md`.
 - Packaged Song Library: bundled/shared library import support for offline onboarding.
 - Quick UI Improvements: cleaner button layout, edit hints, tempo flash, contact link, and usability refinements.
 - Older iPad / iOS compatibility fallback for the Manage menu.
+- Older iPad / iOS compatibility hardening: Safari 15-safe parsing, desktop-mode iPad detection, and non-module fallback import support for library and set files.
 - Font size controls for both lyrics and chords with alignment preserved.
 - Manage Set replaces Song Order and includes remove-song controls.
 - Check for Update menu item that forces cache refresh and reloads the app without clearing IndexedDB.

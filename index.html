@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StageChord</title>
-    <link rel="stylesheet" href="styles.css?v=20260415T1">
+    <link rel="stylesheet" href="styles.css?v=20260415T2">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2f7d6c">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -58,6 +58,45 @@
         <input type="file" id="import-library-input" accept=".json" class="file-input-offscreen">
         <input type="file" id="import-set-input" accept=".json" class="file-input-offscreen">
     </nav>
+
+    <!-- iOS 15 fallback: full-page menu -->
+    <div id="ios-menu-fallback" class="hidden">
+        <div id="ios-menu-header">
+            <h2>Menu</h2>
+            <button id="ios-menu-close-btn" type="button">✕ Close</button>
+        </div>
+        <div id="ios-menu-content">
+            <div class="menu-section">
+                <div class="menu-section-title">Set</div>
+                <button id="ios-menu-add-songs-to-set" type="button">Add Songs to Set</button>
+                <button id="ios-menu-new-set" type="button">New Set</button>
+                <button id="ios-menu-load-set" type="button">Load Set</button>
+                <button id="ios-menu-save-set" type="button">Save Set</button>
+                <button id="ios-menu-import-set" type="button">Import Set</button>
+                <button id="ios-menu-share-set-link" type="button">Share Set as Link</button>
+                <button id="ios-menu-share-set-file" type="button">Share Set as File</button>
+            </div>
+            <div class="menu-section">
+                <div class="menu-section-title">Library</div>
+                <button id="ios-menu-add-songs" type="button">Add Songs to Library</button>
+                <button id="ios-menu-manage-library" type="button">Delete Songs from Library</button>
+                <button id="ios-menu-export-library" type="button">Export Library</button>
+                <button id="ios-menu-import-library" type="button">Import Library</button>
+            </div>
+            <div class="menu-section">
+                <button id="ios-menu-install-app" type="button" class="hidden">Add as App</button>
+            </div>
+            <div class="menu-section menu-contact">
+                <a href="help.html" id="ios-menu-songs-help">Songs &amp; Help</a>
+            </div>
+            <div class="menu-section menu-contact">
+                <a href="#" id="ios-menu-check-update">Check for Update</a>
+            </div>
+            <div class="menu-section menu-contact">
+                <a href="mailto:stagechord@spradbery.com">Contact</a>
+            </div>
+        </div>
+    </div>
 
     <main>
         <section id="controls">
@@ -141,11 +180,336 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=20260415T1"></script>
+    <script type="module" src="app.js?v=20260415T2"></script>
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./service-worker.js');
         }
+
+        // Non-module fallback only: used when app.js fails on older browsers/devices.
+        (function() {
+            const menuBtn = document.getElementById('menu-btn');
+            const menuPanel = document.getElementById('menu-panel');
+            const menuOverlay = document.getElementById('menu-overlay');
+            const iosFallback = document.getElementById('ios-menu-fallback');
+            const closeBtn = document.getElementById('ios-menu-close-btn');
+            const navMenuClose = document.getElementById('menu-close-btn');
+            const navMenuOverlay = document.getElementById('menu-overlay');
+            const fileInput = document.getElementById('file-input');
+            const importLibraryInput = document.getElementById('import-library-input');
+            const importSetInput = document.getElementById('import-set-input');
+
+            const userAgent = navigator.userAgent;
+            const isIpadOSDesktopUA = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+            const isSafariEngine = /Safari/.test(userAgent) && !/Chrome|CriOS|FxiOS|EdgiOS/.test(userAgent);
+            const safariVersionMatch = userAgent.match(/Version\/(\d+)\./);
+            const safariMajorVersion = safariVersionMatch ? parseInt(safariVersionMatch[1], 10) : null;
+            const isMacLikeSafari15 = /Macintosh/.test(userAgent) && isSafariEngine && safariMajorVersion === 15;
+            const isIOS = /iPad|iPhone|iPod/.test(userAgent) || isIpadOSDesktopUA || isMacLikeSafari15;
+            const iOSMatch = userAgent.match(/OS (\d+)_/);
+            const iOSVersion = iOSMatch ? parseInt(iOSMatch[1], 10) : null;
+            const needsFallback = isIOS && (iOSVersion === null || iOSVersion <= 15 || isMacLikeSafari15);
+
+            function appReady() {
+                return !!window.__stagechordAppReady;
+            }
+
+            function closeMenus() {
+                if (iosFallback) iosFallback.classList.add('hidden');
+                if (menuPanel) menuPanel.classList.add('hidden');
+                if (menuOverlay) menuOverlay.classList.add('hidden');
+            }
+
+            // Minimal IndexedDB fallback so imports still work when app module fails.
+            const FALLBACK_DB_NAME = 'stagechord';
+            const FALLBACK_DB_VERSION = 1;
+            let fallbackDbPromise = null;
+
+            function openFallbackDb() {
+                if (fallbackDbPromise) return fallbackDbPromise;
+                fallbackDbPromise = new Promise(function(resolve, reject) {
+                    const req = indexedDB.open(FALLBACK_DB_NAME, FALLBACK_DB_VERSION);
+                    req.onupgradeneeded = function(e) {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains('songs')) {
+                            const songStore = db.createObjectStore('songs', { keyPath: 'id', autoIncrement: true });
+                            songStore.createIndex('filename', 'filename', { unique: false });
+                            songStore.createIndex('contentHash', 'contentHash', { unique: false });
+                        }
+                        if (!db.objectStoreNames.contains('songState')) {
+                            const stateStore = db.createObjectStore('songState', { keyPath: 'songId' });
+                            stateStore.createIndex('songId', 'songId', { unique: true });
+                        }
+                        if (!db.objectStoreNames.contains('setlists')) {
+                            db.createObjectStore('setlists', { keyPath: 'id', autoIncrement: true });
+                        }
+                    };
+                    req.onsuccess = function() { resolve(req.result); };
+                    req.onerror = function() { reject(req.error); };
+                });
+                return fallbackDbPromise;
+            }
+
+            function hashText(text) {
+                let h1 = 0xdeadbeef;
+                let h2 = 0x41c6ce57;
+                for (let i = 0; i < text.length; i++) {
+                    const ch = text.charCodeAt(i);
+                    h1 = Math.imul(h1 ^ ch, 2654435761);
+                    h2 = Math.imul(h2 ^ ch, 1597334677);
+                }
+                h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+                h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+                return (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0');
+            }
+
+            async function addSongFallback(filename, originalText) {
+                const db = await openFallbackDb();
+                const hash = hashText(originalText);
+                const existing = await new Promise(function(resolve, reject) {
+                    const tx = db.transaction('songs', 'readonly');
+                    const idx = tx.objectStore('songs').index('contentHash');
+                    const req = idx.getAll(hash);
+                    req.onsuccess = function() { resolve(req.result); };
+                    req.onerror = function() { reject(req.error); };
+                });
+                if (existing.length > 0) return existing[0].id;
+                return new Promise(function(resolve, reject) {
+                    const tx = db.transaction('songs', 'readwrite');
+                    const req = tx.objectStore('songs').add({
+                        filename: filename,
+                        originalText: originalText,
+                        contentHash: hash,
+                        importedAt: Date.now()
+                    });
+                    req.onsuccess = function() { resolve(req.result); };
+                    req.onerror = function() { reject(req.error); };
+                });
+            }
+
+            async function saveSongStateFallback(songId, state) {
+                const db = await openFallbackDb();
+                return new Promise(function(resolve, reject) {
+                    const tx = db.transaction('songState', 'readwrite');
+                    tx.objectStore('songState').put({
+                        songId: songId,
+                        transpose: state.transpose || 0,
+                        annotation: state.annotation || '',
+                        stave: state.stave || null,
+                        staveTimeSig: state.staveTimeSig || null,
+                        editedText: state.editedText || null,
+                        updatedAt: Date.now()
+                    });
+                    tx.oncomplete = function() { resolve(); };
+                    tx.onerror = function() { reject(tx.error); };
+                });
+            }
+
+            async function importLibraryFallback(data) {
+                if (!data || !Array.isArray(data.songs)) {
+                    throw new Error('Invalid library file');
+                }
+                let imported = 0;
+                for (let i = 0; i < data.songs.length; i++) {
+                    const entry = data.songs[i];
+                    if (!entry || !entry.filename || !entry.originalText) continue;
+                    const id = await addSongFallback(entry.filename, entry.originalText);
+                    if (entry.state) {
+                        await saveSongStateFallback(id, entry.state);
+                    }
+                    imported++;
+                }
+                return imported;
+            }
+
+            async function importSetFallback(data) {
+                if (!data || data.type !== 'setlist' || !Array.isArray(data.songs)) {
+                    throw new Error('Invalid set file');
+                }
+                const db = await openFallbackDb();
+                const songIds = [];
+                for (let i = 0; i < data.songs.length; i++) {
+                    const entry = data.songs[i];
+                    if (!entry || !entry.filename || !entry.originalText) continue;
+                    const id = await addSongFallback(entry.filename, entry.originalText);
+                    if (entry.state) {
+                        await saveSongStateFallback(id, entry.state);
+                    }
+                    songIds.push(id);
+                }
+                await new Promise(function(resolve, reject) {
+                    const tx = db.transaction('setlists', 'readwrite');
+                    tx.objectStore('setlists').add({
+                        name: data.name || 'Imported Set',
+                        songIds: songIds,
+                        currentIndex: 0,
+                        createdAt: Date.now()
+                    });
+                    tx.oncomplete = function() { resolve(); };
+                    tx.onerror = function() { reject(tx.error); };
+                });
+                return songIds.length;
+            }
+
+            async function handleAddSongsFallback() {
+                const files = Array.from((fileInput && fileInput.files) || []);
+                if (files.length === 0) return;
+                let imported = 0;
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    const text = await file.text();
+                    if (!text) continue;
+                    await addSongFallback(file.name, text);
+                    imported++;
+                }
+                fileInput.value = '';
+                alert('Imported ' + imported + ' song(s) into your library.');
+            }
+
+            async function handleImportLibraryFileFallback() {
+                const file = importLibraryInput && importLibraryInput.files && importLibraryInput.files[0];
+                if (!file) return;
+                try {
+                    const text = await file.text();
+                    const data = JSON.parse(text);
+                    const count = await importLibraryFallback(data);
+                    alert('Imported ' + count + ' song(s) into your library.');
+                } catch (e) {
+                    alert('Failed to import library: ' + (e && e.message ? e.message : e));
+                }
+                importLibraryInput.value = '';
+            }
+
+            async function handleImportSetFileFallback() {
+                const file = importSetInput && importSetInput.files && importSetInput.files[0];
+                if (!file) return;
+                try {
+                    const text = await file.text();
+                    const data = JSON.parse(text);
+                    const count = await importSetFallback(data);
+                    alert('Imported set with ' + count + ' song(s).');
+                } catch (e) {
+                    alert('Failed to import set: ' + (e && e.message ? e.message : e));
+                }
+                importSetInput.value = '';
+            }
+
+            async function importPendingLibraryFallback() {
+                const libUrl = localStorage.getItem('stagechord_pending_import');
+                if (!libUrl) return;
+                localStorage.removeItem('stagechord_pending_import');
+                try {
+                    const resp = await fetch(libUrl);
+                    if (!resp.ok) throw new Error('Could not fetch library file');
+                    const data = await resp.json();
+                    const count = await importLibraryFallback(data);
+                    alert('Imported ' + count + ' song(s) from Songs & Help.');
+                } catch (e) {
+                    alert('Failed to import Songs & Help library: ' + (e && e.message ? e.message : e));
+                }
+            }
+
+            if (menuBtn) {
+                menuBtn.addEventListener('click', function(e) {
+                    if (appReady()) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (needsFallback && iosFallback) {
+                        iosFallback.classList.toggle('hidden');
+                    } else if (menuPanel && menuOverlay) {
+                        menuPanel.classList.toggle('hidden');
+                        menuOverlay.classList.toggle('hidden');
+                    }
+                }, false);
+            }
+
+            if (closeBtn) closeBtn.addEventListener('click', closeMenus);
+            if (navMenuClose) navMenuClose.addEventListener('click', closeMenus);
+            if (navMenuOverlay) navMenuOverlay.addEventListener('click', closeMenus);
+
+            function unsupportedAction() {
+                alert('This action needs full app support, which did not load on this device/browser.');
+            }
+
+            const actionIds = [
+                'menu-new-set', 'ios-menu-new-set',
+                'menu-add-songs-to-set', 'ios-menu-add-songs-to-set',
+                'menu-load-set', 'ios-menu-load-set',
+                'menu-save-set', 'ios-menu-save-set',
+                'menu-share-set-link', 'ios-menu-share-set-link',
+                'menu-share-set-file', 'ios-menu-share-set-file',
+                'menu-manage-library', 'ios-menu-manage-library',
+                'menu-export-library', 'ios-menu-export-library',
+                'menu-check-update', 'ios-menu-check-update'
+            ];
+
+            const importIds = {
+                'menu-add-songs': fileInput,
+                'ios-menu-add-songs': fileInput,
+                'menu-import-library': importLibraryInput,
+                'ios-menu-import-library': importLibraryInput,
+                'menu-import-set': importSetInput,
+                'ios-menu-import-set': importSetInput
+            };
+
+            Object.entries(importIds).forEach(function(entry) {
+                const btn = document.getElementById(entry[0]);
+                const input = entry[1];
+                if (!btn) return;
+                btn.addEventListener('click', function(e) {
+                    if (appReady()) return;
+                    e.preventDefault();
+                    if (input) input.click();
+                    closeMenus();
+                });
+            });
+
+            if (fileInput) {
+                fileInput.addEventListener('change', function() {
+                    if (appReady()) return;
+                    handleAddSongsFallback();
+                });
+            }
+            if (importLibraryInput) {
+                importLibraryInput.addEventListener('change', function() {
+                    if (appReady()) return;
+                    handleImportLibraryFileFallback();
+                });
+            }
+            if (importSetInput) {
+                importSetInput.addEventListener('change', function() {
+                    if (appReady()) return;
+                    handleImportSetFileFallback();
+                });
+            }
+
+            actionIds.forEach(function(id) {
+                const btn = document.getElementById(id);
+                if (!btn) return;
+                btn.addEventListener('click', function(e) {
+                    if (appReady()) return;
+                    e.preventDefault();
+                    unsupportedAction();
+                    closeMenus();
+                });
+            });
+
+            const installIds = ['menu-install-app', 'ios-menu-install-app'];
+            installIds.forEach(function(id) {
+                const btn = document.getElementById(id);
+                if (!btn) return;
+                btn.addEventListener('click', function(e) {
+                    if (appReady()) return;
+                    e.preventDefault();
+                    alert('To install StageChord:\n\niOS (Apple): Tap the Share button (⬆) then "Add to Home Screen"\n\nAndroid: Tap the browser menu (⋮) then "Add to Home screen"');
+                    closeMenus();
+                });
+            });
+
+            if (!appReady()) {
+                importPendingLibraryFallback();
+            }
+        })();
     </script>
 </body>
 </html>

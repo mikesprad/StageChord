@@ -1,12 +1,15 @@
-import { parseChordPro } from './parser.js?v=20260415T1';
-import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20260415T1';
+import { parseChordPro } from './parser.js?v=20260415T2';
+import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20260415T2';
 import {
     addSong, getSong, getAllSongs, deleteSong,
     getSongState, saveSongState,
     saveSetlist, getSetlist, getAllSetlists, deleteSetlist,
     exportLibrary, importLibrary,
     exportSetlist, importSetlist
-} from './db.js?v=20260415T1';
+} from './db.js?v=20260415T2';
+
+// Signal to non-module fallback scripts that the app module loaded successfully.
+window.__stagechordAppReady = true;
 
 const notesPreferred = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 const sharpNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -234,12 +237,25 @@ const menuPanel = document.getElementById('menu-panel');
 const menuCloseBtn = document.getElementById('menu-close-btn');
 const importLibraryInput = document.getElementById('import-library-input');
 const importSetInput = document.getElementById('import-set-input');
-const compatActions = document.getElementById('compat-actions');
-const fallbackAddSongsBtn = document.getElementById('fallback-add-songs');
-const fallbackBrowseLibraryBtn = document.getElementById('fallback-browse-library');
 const fontDecreaseBtn = document.getElementById('font-decrease-btn');
 const fontIncreaseBtn = document.getElementById('font-increase-btn');
+const addSongsToSetBtn = document.getElementById('menu-add-songs-to-set');
+const manageLibraryBtn = document.getElementById('menu-manage-library');
 const checkUpdateBtn = document.getElementById('menu-check-update');
+
+// ── iOS detection (before menu functions) ────────────
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+const userAgent = navigator.userAgent;
+const isIpadOSDesktopUA = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+const isSafariEngine = /Safari/.test(userAgent) && !/Chrome|CriOS|FxiOS|EdgiOS/.test(userAgent);
+const safariVersionMatch = userAgent.match(/Version\/(\d+)\./);
+const safariMajorVersion = safariVersionMatch ? parseInt(safariVersionMatch[1], 10) : null;
+const isMacLikeSafari15 = /Macintosh/.test(userAgent) && isSafariEngine && safariMajorVersion === 15;
+const isIOS = /iPad|iPhone|iPod/.test(userAgent) || isIpadOSDesktopUA || isMacLikeSafari15;
+const iOSVersionMatch = userAgent.match(/OS (\d+)_/);
+const iOSVersion = iOSVersionMatch ? parseInt(iOSVersionMatch[1], 10) : null;
+const isOldIOS = isIOS && iOSVersion !== null && iOSVersion < 13;
+const needsIOSFallback = isIOS && (iOSVersion === null || iOSVersion <= 15 || isMacLikeSafari15);
 
 const FONT_SIZE_KEY = 'stagechord_font_size';
 const MIN_FONT_SIZE = 0.8;
@@ -277,12 +293,24 @@ if (headerBar) {
 
 // ── Menu open/close ──────────────────────────────────
 function openMenu() {
-    menuPanel.classList.remove('hidden');
-    menuOverlay.classList.remove('hidden');
+    if (needsIOSFallback) {
+        // On iOS 15, show full-page menu instead of slide-out
+        const iosFallbackMenu = document.getElementById('ios-menu-fallback');
+        if (iosFallbackMenu) iosFallbackMenu.classList.remove('hidden');
+    } else {
+        // Normal slide-out menu
+        menuPanel.classList.remove('hidden');
+        menuOverlay.classList.remove('hidden');
+    }
 }
 function closeMenu() {
-    menuPanel.classList.add('hidden');
-    menuOverlay.classList.add('hidden');
+    if (needsIOSFallback) {
+        const iosFallbackMenu = document.getElementById('ios-menu-fallback');
+        if (iosFallbackMenu) iosFallbackMenu.classList.add('hidden');
+    } else {
+        menuPanel.classList.add('hidden');
+        menuOverlay.classList.add('hidden');
+    }
 }
 if (menuBtn) {
     menuBtn.addEventListener('touchstart', () => {
@@ -335,19 +363,16 @@ document.getElementById('menu-add-songs').addEventListener('click', () => {
     closeMenu();
 });
 
-document.getElementById('menu-browse-library').addEventListener('click', () => {
-    closeMenu();
-    openLibraryBrowser();
-});
-
-if (fallbackAddSongsBtn) {
-    fallbackAddSongsBtn.addEventListener('click', () => {
-        fileInput.click();
+if (addSongsToSetBtn) {
+    addSongsToSetBtn.addEventListener('click', () => {
+        closeMenu();
+        openLibraryBrowser('set');
     });
 }
-if (fallbackBrowseLibraryBtn) {
-    fallbackBrowseLibraryBtn.addEventListener('click', () => {
-        openLibraryBrowser();
+if (manageLibraryBtn) {
+    manageLibraryBtn.addEventListener('click', () => {
+        closeMenu();
+        openLibraryBrowser('manage');
     });
 }
 
@@ -417,18 +442,20 @@ document.getElementById('menu-import-library').addEventListener('click', () => {
     importLibraryInput.click();
 });
 
-// PWA install prompt
-const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-
+// PWA install prompt - init app appearance
 // On iOS show the button immediately (no beforeinstallprompt support)
 if (isIOS && !isStandalone) {
     const installBtn = document.getElementById('menu-install-app');
     if (installBtn) installBtn.classList.remove('hidden');
 }
 
-if (isIOS && compatActions) {
-    compatActions.classList.remove('hidden');
+if (isOldIOS) {
+    document.body.classList.add('old-ios-menu');
+}
+
+// For iOS 15 and older, add fallback CSS class
+if (needsIOSFallback) {
+    document.body.classList.add('ios-fallback-mode');
 }
 
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -485,6 +512,65 @@ document.getElementById('menu-share-set-file').addEventListener('click', async (
     closeMenu();
     await shareCurrentSetAsFile();
 });
+
+// ── iOS 15 Fallback Menu Button Listeners ────────────
+if (needsIOSFallback) {
+    const iosMenuClose = document.getElementById('ios-menu-close-btn');
+    if (iosMenuClose) {
+        iosMenuClose.addEventListener('click', closeMenu);
+    }
+
+    // Wire iOS menu buttons to same handlers as regular menu
+    const iosButtonMap = {
+        'ios-menu-new-set': () => { closeMenu(); clearSet(); },
+        'ios-menu-add-songs': () => { fileInput.click(); closeMenu(); },
+        'ios-menu-add-songs-to-set': () => { closeMenu(); openLibraryBrowser('set'); },
+        'ios-menu-manage-library': () => { closeMenu(); openLibraryBrowser('manage'); },
+        'ios-menu-export-library': async () => { closeMenu(); const data = await exportLibrary(); downloadJSON(data, 'stagechord-library.json'); },
+        'ios-menu-import-library': () => { closeMenu(); importLibraryInput.click(); },
+        'ios-menu-install-app': async () => { 
+            closeMenu();
+            if (deferredInstallPrompt) {
+                deferredInstallPrompt.prompt();
+                const result = await deferredInstallPrompt.userChoice;
+                if (result.outcome === 'accepted') {
+                    deferredInstallPrompt = null;
+                    document.getElementById('ios-menu-install-app').classList.add('hidden');
+                }
+            } else {
+                alert('To install StageChord:\n\niOS (Apple): Tap the Share button (⬆) then "Add to Home Screen"\n\nAndroid: Tap the browser menu (⋮) then "Add to Home screen"');
+            }
+        },
+        'ios-menu-load-set': async () => { closeMenu(); if (await promptSaveCurrentSet()) openLoadSetModal(); },
+        'ios-menu-save-set': () => { closeMenu(); openSaveSetModal(); },
+        'ios-menu-import-set': async () => { closeMenu(); if (await promptSaveCurrentSet()) importSetInput.click(); },
+        'ios-menu-share-set-link': async () => { closeMenu(); await shareCurrentSetAsLink(); },
+        'ios-menu-share-set-file': async () => { closeMenu(); await shareCurrentSetAsFile(); },
+        'ios-menu-check-update': async (event) => { event.preventDefault(); closeMenu(); await runUpdateCheck(); },
+    };
+
+    for (const [id, handler] of Object.entries(iosButtonMap)) {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.addEventListener('click', handler);
+        }
+    }
+
+    // Sync install button visibility with regular menu
+    const syncInstallBtn = () => {
+        const regularInstall = document.getElementById('menu-install-app');
+        const iosInstall = document.getElementById('ios-menu-install-app');
+        if (regularInstall && iosInstall) {
+            if (regularInstall.classList.contains('hidden')) {
+                iosInstall.classList.add('hidden');
+            } else {
+                iosInstall.classList.remove('hidden');
+            }
+        }
+    };
+    window.addEventListener('beforeinstallprompt', syncInstallBtn);
+    window.addEventListener('appinstalled', syncInstallBtn);
+}
 
 fileInput.addEventListener('change', handleFiles);
 prevBtn.addEventListener('click', () => navigate(-1));
@@ -840,6 +926,12 @@ async function transpose(semitones) {
 }
 
 function detectSectionType(rawLine) {
+
+    function splitEditableSegments(text) {
+        if (!text) return [];
+        // Safari 15 doesn't support regex lookbehind, so use a compatible tokenizer.
+        return text.match(/\S+\s*|\s+/g) || [];
+    }
     const trimmed = rawLine.trim();
     // Lines wrapped in curly brackets are directives, not headings.
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) return null;
@@ -1196,7 +1288,7 @@ function renderCurrent() {
             lyricLine.className = 'lyric-line';
             if (chordEditMode) {
                 const fullText = lineTokens.map(t => t.value).join('');
-                const words = fullText.split(/(?<=\s)(?=\S)/);
+                const words = splitEditableSegments(fullText);
                 let offset = 0;
                 words.forEach(word => {
                     if (!word) return;
@@ -1261,7 +1353,7 @@ function renderCurrent() {
                 const lyricSpan = document.createElement('span');
                 lyricSpan.className = 'lyric';
                 if (chordEditMode && pair.text) {
-                    const words = pair.text.split(/(?<=\s)(?=\S)/);
+                    const words = splitEditableSegments(pair.text);
                     let segOffset = pairTextOffset;
                     words.forEach((word, wi) => {
                         if (!word) return;
@@ -1769,7 +1861,10 @@ function downloadJSON(data, filename) {
 const libraryModal = document.getElementById('library-modal');
 const libraryModalClose = document.getElementById('library-modal-close');
 const libraryModalOverlay = document.getElementById('library-modal-overlay');
+const libraryModalHeader = document.getElementById('library-modal-header');
+const libraryModalTitle = libraryModalHeader ? libraryModalHeader.querySelector('span') : null;
 const librarySongList = document.getElementById('library-song-list');
+const libraryModalActions = document.getElementById('library-modal-actions');
 const libraryAddSelected = document.getElementById('library-add-selected');
 
 function closeLibraryModal() {
@@ -1778,7 +1873,8 @@ function closeLibraryModal() {
 libraryModalClose.addEventListener('click', closeLibraryModal);
 libraryModalOverlay.addEventListener('click', closeLibraryModal);
 
-async function openLibraryBrowser() {
+async function openLibraryBrowser(mode = 'set') {
+    const isManageMode = mode === 'manage';
     const allSongs = await getAllSongs();
     allSongs.sort((a, b) => {
         const titleA = parseChordPro(a.originalText).metadata.title || a.filename.replace(/\.[^.]+$/, '');
@@ -1786,9 +1882,17 @@ async function openLibraryBrowser() {
         return titleA.localeCompare(titleB);
     });
     librarySongList.innerHTML = '';
+    libraryModal.dataset.mode = mode;
+    if (libraryModalTitle) {
+        libraryModalTitle.textContent = isManageMode ? 'Manage Library' : 'Add Songs to Set';
+    }
+    libraryModalActions.style.display = isManageMode ? 'none' : 'block';
 
     if (allSongs.length === 0) {
-        librarySongList.innerHTML = '<div class="empty-message">No songs in library yet. Use "Add Songs to Library" to import ChordPro files.</div>';
+        const emptyMessage = isManageMode
+            ? 'No songs in library yet. Use "Add Songs to Library" to import ChordPro files.'
+            : 'No songs in library yet. Use "Add Songs to Library" to import ChordPro files.';
+        librarySongList.innerHTML = `<div class="empty-message">${emptyMessage}</div>`;
         libraryModal.classList.remove('hidden');
         return;
     }
@@ -1800,49 +1904,52 @@ async function openLibraryBrowser() {
         const item = document.createElement('div');
         item.className = 'library-song-item';
 
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.value = song.id;
-        // Pre-check if already in current set
-        if (songs.some(s => s.songId === song.id)) {
-            cb.checked = true;
-            cb.disabled = true;
+        let cb = null;
+        if (!isManageMode) {
+            cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = song.id;
+            cb.checked = songs.some(s => s.songId === song.id);
+            cb.id = `library-song-${song.id}`;
         }
 
-        const label = document.createElement('label');
-        label.textContent = title;
-        label.addEventListener('click', () => { if (!cb.disabled) cb.checked = !cb.checked; });
+        const titleElement = document.createElement(cb ? 'label' : 'span');
+        titleElement.textContent = title;
+        if (cb) {
+            titleElement.htmlFor = cb.id;
+            item.appendChild(cb);
+        }
+        item.appendChild(titleElement);
 
-        const delBtn = document.createElement('button');
-        delBtn.className = 'lib-delete-btn';
-        delBtn.textContent = '✕';
-        delBtn.title = 'Delete from library';
-        delBtn.addEventListener('click', async () => {
-            if (!confirm(`Delete "${title}" from library?`)) return;
-            await deleteSong(song.id);
-            // Remove from current set if present
-            const setIdx = songs.findIndex(s => s.songId === song.id);
-            if (setIdx !== -1) {
-                songs.splice(setIdx, 1);
-                if (currentIndex >= songs.length) currentIndex = songs.length - 1;
-                populateSelect();
-                if (currentIndex >= 0) {
-                    fileSelect.selectedIndex = currentIndex;
-                    renderCurrent();
-                } else {
-                    songView.innerHTML = '';
-                    if (currentSongTitle) currentSongTitle.textContent = '';
-                    if (currentSongKey) currentSongKey.innerHTML = '';
+        if (isManageMode) {
+            const delBtn = document.createElement('button');
+            delBtn.className = 'lib-delete-btn';
+            delBtn.textContent = '✕';
+            delBtn.title = 'Delete from library';
+            delBtn.addEventListener('click', async () => {
+                if (!confirm(`Delete "${title}" from library?`)) return;
+                await deleteSong(song.id);
+                const setIdx = songs.findIndex(s => s.songId === song.id);
+                if (setIdx !== -1) {
+                    songs.splice(setIdx, 1);
+                    if (currentIndex >= songs.length) currentIndex = songs.length - 1;
+                    populateSelect();
+                    if (currentIndex >= 0) {
+                        fileSelect.selectedIndex = currentIndex;
+                        renderCurrent();
+                    } else {
+                        songView.innerHTML = '';
+                        if (currentSongTitle) currentSongTitle.textContent = '';
+                        if (currentSongKey) currentSongKey.innerHTML = '';
+                    }
+                    updateNav();
+                    saveSessionRef();
                 }
-                updateNav();
-                saveSessionRef();
-            }
-            item.remove();
-        });
+                item.remove();
+            });
+            item.appendChild(delBtn);
+        }
 
-        item.appendChild(cb);
-        item.appendChild(label);
-        item.appendChild(delBtn);
         librarySongList.appendChild(item);
     });
 
@@ -1850,27 +1957,45 @@ async function openLibraryBrowser() {
 }
 
 libraryAddSelected.addEventListener('click', async () => {
-    const checkboxes = librarySongList.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)');
-    for (const cb of checkboxes) {
-        const songId = Number(cb.value);
-        if (songs.some(s => s.songId === songId)) continue;
-        const songRecord = await getSong(songId);
-        if (!songRecord) continue;
-        const state = await getSongState(songId) || {};
-        songs.push({
-            songId,
-            name: songRecord.filename,
-            originalText: songRecord.originalText,
-            text: state.editedText || songRecord.originalText,
-            transpose: state.transpose || 0,
-            annotation: state.annotation || '',
-            stave: state.stave || null,
-            staveTimeSig: state.staveTimeSig || null,
-        });
+    const checkboxes = Array.from(librarySongList.querySelectorAll('input[type="checkbox"]'));
+    const selectedIds = checkboxes.filter(cb => cb.checked).map(cb => Number(cb.value));
+    const selectedSet = new Set(selectedIds);
+    const currentSongId = songs[currentIndex]?.songId;
+    const songMap = new Map(songs.map((song) => [song.songId, song]));
+    const updatedSongs = [];
+
+    for (const songId of selectedIds) {
+        if (songMap.has(songId)) {
+            updatedSongs.push(songMap.get(songId));
+        } else {
+            const songRecord = await getSong(songId);
+            if (!songRecord) continue;
+            const state = await getSongState(songId) || {};
+            updatedSongs.push({
+                songId,
+                name: songRecord.filename,
+                originalText: songRecord.originalText,
+                text: state.editedText || songRecord.originalText,
+                transpose: state.transpose || 0,
+                annotation: state.annotation || '',
+                stave: state.stave || null,
+                staveTimeSig: state.staveTimeSig || null,
+            });
+        }
     }
-    if (currentIndex < 0 && songs.length > 0) currentIndex = 0;
+
+    songs = updatedSongs;
+    if (songs.length === 0) {
+        currentIndex = -1;
+    } else {
+        const existingIndex = songs.findIndex((s) => s.songId === currentSongId);
+        currentIndex = existingIndex !== -1 ? existingIndex : 0;
+    }
+
     populateSelect();
-    fileSelect.selectedIndex = currentIndex;
+    if (currentIndex >= 0) {
+        fileSelect.selectedIndex = currentIndex;
+    }
     renderCurrent();
     updateNav();
     saveSessionRef();

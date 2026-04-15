@@ -114,6 +114,9 @@ A collection of small UX enhancements:
 - **Android tempo robustness:** Tempo flash now validates BPM before starting, preventing crashes on older Android browsers.
 - **Check for Update:** Added a "Check for Update" button under Songs & Help that updates the service worker, clears cached app files, and reloads the app without removing IndexedDB data.
 - **Older iPad compatibility:** Added fallback action buttons for adding songs and browsing the library when the Manage menu may not behave reliably.
+- **iOS 15 reliability hardening:** Replaced Safari-15-incompatible regex lookbehind in chord-edit tokenization so the main app module loads on older Safari engines.
+- **Desktop-mode iPad detection:** Added fallback detection for iPadOS devices that report as `Macintosh` Safari 15, ensuring the compatible menu path is chosen.
+- **Non-module import fallback:** When the module app cannot load, fallback script now imports songs, libraries, and set files directly into IndexedDB, including Songs & Help pending library imports.
 - **Font size controls:** Added `Aa-` / `Aa+` controls that scale lyric and chord text together while keeping alignment intact.
 - **Manage Set:** Renamed the song order panel to Manage Set and added a remove-song control in the reorder list.
 - **Contact email:** A "Contact" mailto link (`stagechord@spradbery.com`) is shown at the bottom of the Manage menu.

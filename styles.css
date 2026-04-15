@@ -89,6 +89,14 @@ main {
   -webkit-overflow-scrolling: touch;
   padding: 0;
 }
+body.old-ios-menu #menu-panel {
+  width: 100%;
+  max-width: 100%;
+  box-shadow: none;
+}
+body.old-ios-menu #menu-panel {
+  left: 0;
+}
 #menu-header {
   display: flex;
   align-items: center;
@@ -570,24 +578,6 @@ main {
 .font-size-controls button:hover {
   background: #f0f0f0;
 }
-.compat-actions {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.7rem;
-  flex-wrap: wrap;
-}
-.compat-actions button {
-  padding: 0.5rem 0.8rem;
-  border: 1px solid #777;
-  border-radius: 6px;
-  background: #fff;
-  color: #333;
-  cursor: pointer;
-  font-size: 0.95rem;
-}
-.compat-actions button:hover {
-  background: #f2f2f2;
-}
 .meta-btn-group {
   display: flex;
   gap: 0.25rem;
@@ -897,4 +887,100 @@ main {
   color: #999;
   padding: 0;
   line-height: 1;
+}
+
+/* ── iOS 15 fallback menu ────────────────────────── */
+#ios-menu-fallback {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #f9f9f9;
+  z-index: 920;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#ios-menu-header {
+  background: #444;
+  color: #fff;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  border-bottom: 1px solid #333;
+}
+
+#ios-menu-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  flex: 1;
+}
+
+#ios-menu-close-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.35);
+  color: #fff;
+  padding: 0.35rem 0.7rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+#ios-menu-content {
+  flex: 1;
+  padding: 0.5rem 0;
+}
+
+#ios-menu-content .menu-section {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #ddd;
+}
+
+#ios-menu-content .menu-section-title {
+  padding: 0.75rem 1rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #888;
+  letter-spacing: 0.05em;
+}
+
+#ios-menu-content button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: none;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #333;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#ios-menu-content button:active {
+  background: #e8e8e8;
+}
+
+#ios-menu-content .menu-contact {
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+}
+
+#ios-menu-content .menu-contact a {
+  display: block;
+  color: #2f7d6c;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+#ios-menu-content .menu-contact a:active {
+  opacity: 0.7;
 }
