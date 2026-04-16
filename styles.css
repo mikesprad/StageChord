@@ -565,18 +565,8 @@ body.old-ios-menu #menu-panel {
   align-items: center;
   margin-top: 0.3rem;
 }
-.font-size-controls button {
-  padding: 0.2rem 0.35rem;
-  font-size: 0.95rem;
-  min-width: 1.5rem;
-  height: 1.5rem;
-  border: 1px solid #999;
-  border-radius: 4px;
-  background: #fff;
-  cursor: pointer;
-}
-.font-size-controls button:hover {
-  background: #f0f0f0;
+.font-size-controls.in-meta-btn-group {
+  margin-top: 0;
 }
 .meta-btn-group {
   display: flex;

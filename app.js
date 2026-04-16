@@ -243,6 +243,9 @@ const addSongsToSetBtn = document.getElementById('menu-add-songs-to-set');
 const manageLibraryBtn = document.getElementById('menu-manage-library');
 const checkUpdateBtn = document.getElementById('menu-check-update');
 
+if (fontDecreaseBtn) fontDecreaseBtn.classList.add('annotate-btn');
+if (fontIncreaseBtn) fontIncreaseBtn.classList.add('annotate-btn');
+
 // ── iOS detection (before menu functions) ────────────
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
 const userAgent = navigator.userAgent;
@@ -925,13 +928,13 @@ async function transpose(semitones) {
     }
 }
 
-function detectSectionType(rawLine) {
+function splitEditableSegments(text) {
+    if (!text) return [];
+    // Safari 15 doesn't support regex lookbehind, so use a compatible tokenizer.
+    return text.match(/\S+\s*|\s+/g) || [];
+}
 
-    function splitEditableSegments(text) {
-        if (!text) return [];
-        // Safari 15 doesn't support regex lookbehind, so use a compatible tokenizer.
-        return text.match(/\S+\s*|\s+/g) || [];
-    }
+function detectSectionType(rawLine) {
     const trimmed = rawLine.trim();
     // Lines wrapped in curly brackets are directives, not headings.
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) return null;
@@ -1086,7 +1089,12 @@ function renderCurrent() {
     staveBtn.className = 'annotate-btn';
     staveBtn.title = song.stave ? 'Edit stave' : 'Add a stave';
     const songBtnRow = document.getElementById('song-btn-row');
+    const songMetaRow = document.getElementById('song-meta-row');
+    const fontControls = document.getElementById('font-size-controls');
     if (songBtnRow) {
+        if (fontControls && songMetaRow && songBtnRow.contains(fontControls)) {
+            songMetaRow.appendChild(fontControls);
+        }
         songBtnRow.innerHTML = '';
         songBtnRow.appendChild(btnGroup);
     }
@@ -1137,6 +1145,12 @@ function renderCurrent() {
             renderCurrent();
         });
         btnGroup.appendChild(resetBtn);
+    }
+
+    // Keep font controls on the same row and style context as song action buttons.
+    if (fontControls) {
+        fontControls.classList.add('in-meta-btn-group');
+        btnGroup.appendChild(fontControls);
     }
 
     // Key/Tempo editor — shown as first line in song view when in edit mode
