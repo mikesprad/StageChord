@@ -3,6 +3,7 @@
         "/^cd /workspaces/StageChord && python3 -m http\\.server 8000$/": {
             "approve": true,
             "matchCommandLine": true
-        }
+        },
+        "true": true
     }
 }

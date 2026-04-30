@@ -31,18 +31,20 @@
             <button id="menu-new-set" type="button">New Set</button>
             <button id="menu-load-set" type="button">Load Set</button>
             <button id="menu-save-set" type="button">Save Set</button>
-            <button id="menu-import-set" type="button">Import Set</button>
-            <button id="menu-share-set-link" type="button">Share Set as Link</button>
-            <button id="menu-share-set-file" type="button">Share Set as File</button>
         </div>
         <div class="menu-section">
             <div class="menu-section-title">Library</div>
-            <button id="menu-switch-library" type="button">Switch Library</button>
             <button id="menu-manage-libraries" type="button">Manage Libraries</button>
             <button id="menu-add-songs" type="button">Add Songs to Library</button>
             <button id="menu-delete-songs" type="button">Delete Songs from Library</button>
-            <button id="menu-export-library" type="button">Export Bundle</button>
+        </div>
+        <div class="menu-section">
+            <div class="menu-section-title">Import/Export</div>
+            <button id="menu-import-set" type="button">Import Set</button>
+            <button id="menu-share-set-link" type="button">Share Set as Link</button>
+            <button id="menu-share-set-file" type="button">Share Set as File</button>
             <button id="menu-import-library" type="button">Import Bundle</button>
+            <button id="menu-export-library" type="button">Export Bundle</button>
         </div>
         <div class="menu-section">
             <button id="menu-install-app" type="button" class="hidden">Add as App</button>
@@ -71,18 +73,20 @@
                 <button id="ios-menu-new-set" type="button">New Set</button>
                 <button id="ios-menu-load-set" type="button">Load Set</button>
                 <button id="ios-menu-save-set" type="button">Save Set</button>
-                <button id="ios-menu-import-set" type="button">Import Set</button>
-                <button id="ios-menu-share-set-link" type="button">Share Set as Link</button>
-                <button id="ios-menu-share-set-file" type="button">Share Set as File</button>
             </div>
             <div class="menu-section">
                 <div class="menu-section-title">Library</div>
-                <button id="ios-menu-switch-library" type="button">Switch Library</button>
                 <button id="ios-menu-manage-libraries" type="button">Manage Libraries</button>
                 <button id="ios-menu-add-songs" type="button">Add Songs to Library</button>
                 <button id="ios-menu-delete-songs" type="button">Delete Songs from Library</button>
-                <button id="ios-menu-export-library" type="button">Export Bundle</button>
+            </div>
+            <div class="menu-section">
+                <div class="menu-section-title">Import/Export</div>
+                <button id="ios-menu-import-set" type="button">Import Set</button>
+                <button id="ios-menu-share-set-link" type="button">Share Set as Link</button>
+                <button id="ios-menu-share-set-file" type="button">Share Set as File</button>
                 <button id="ios-menu-import-library" type="button">Import Bundle</button>
+                <button id="ios-menu-export-library" type="button">Export Bundle</button>
             </div>
             <div class="menu-section">
                 <button id="ios-menu-install-app" type="button" class="hidden">Add as App</button>
@@ -193,18 +197,6 @@
                 </div>
             </div>
             <div id="manage-libraries-list"></div>
-        </div>
-    </div>
-
-    <!-- Switch library dropdown modal -->
-    <div id="switch-library-modal" class="hidden">
-        <div id="switch-library-modal-overlay"></div>
-        <div id="switch-library-modal-panel">
-            <div id="switch-library-modal-header">
-                <span>Switch Library</span>
-                <button id="switch-library-modal-close" type="button">✕</button>
-            </div>
-            <div id="switch-library-list"></div>
         </div>
     </div>
 
@@ -548,7 +540,6 @@
                 'menu-save-set', 'ios-menu-save-set',
                 'menu-share-set-link', 'ios-menu-share-set-link',
                 'menu-share-set-file', 'ios-menu-share-set-file',
-                'menu-switch-library', 'ios-menu-switch-library',
                 'menu-manage-libraries', 'ios-menu-manage-libraries',
                 'menu-delete-songs', 'ios-menu-delete-songs',
                 'menu-export-library', 'ios-menu-export-library',

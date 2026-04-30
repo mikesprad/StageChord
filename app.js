@@ -431,14 +431,6 @@ if (addSongsToSetBtn) {
         openLibraryBrowser('set');
     });
 }
-if (document.getElementById('menu-switch-library')) {
-    document.getElementById('menu-switch-library').addEventListener('click', async () => {
-        if (await promptSaveCurrentSet()) {
-            closeMenu();
-            openSwitchLibraryModal();
-        }
-    });
-}
 if (document.getElementById('menu-manage-libraries')) {
     document.getElementById('menu-manage-libraries').addEventListener('click', () => {
         closeMenu();
@@ -601,7 +593,6 @@ if (needsIOSFallback) {
         'ios-menu-new-set': () => { closeMenu(); clearSet(); },
         'ios-menu-add-songs': () => { fileInput.click(); closeMenu(); },
         'ios-menu-add-songs-to-set': () => { closeMenu(); openLibraryBrowser('set'); },
-        'ios-menu-switch-library': async () => { if (await promptSaveCurrentSet()) { closeMenu(); openSwitchLibraryModal(); } },
         'ios-menu-manage-libraries': () => { closeMenu(); openManageLibrariesModal(); },
         'ios-menu-delete-songs': () => { closeMenu(); openLibraryBrowser('manage'); },
         'ios-menu-export-library': async () => { closeMenu(); const data = await exportLibrary(currentLibraryId); downloadJSON(data, 'stagechord-bundle.json'); },
@@ -1991,6 +1982,41 @@ function closeManageLibrariesModal() {
 manageLibrariesModalClose.addEventListener('click', closeManageLibrariesModal);
 manageLibrariesModalOverlay.addEventListener('click', closeManageLibrariesModal);
 
+async function switchToLibrary(libraryId) {
+    if (currentLibraryId === libraryId) return;
+
+    // Save the last set used with the old library if applicable
+    if (currentSetlistId && currentLibraryId) {
+        libraryPerSetlist[currentSetlistId] = currentLibraryId;
+    }
+
+    currentLibraryId = libraryId;
+
+    // Try to restore the last used set for this library
+    currentSetlistId = null;
+    for (const [setId, libId] of Object.entries(libraryPerSetlist)) {
+        if (libId === libraryId) {
+            const set = await getSetlist(Number(setId));
+            if (set && set.libraryId === libraryId) {
+                currentSetlistId = Number(setId);
+                break;
+            }
+        }
+    }
+
+    clearSet();
+    saveSessionRef();
+
+    // Optionally restore a set for the new library
+    if (currentSetlistId) {
+        await loadSetlistIntoView(currentSetlistId);
+    }
+
+    populateSelect();
+    renderCurrent();
+    updateNav();
+}
+
 async function openManageLibrariesModal() {
     manageLibrariesList.innerHTML = '';
     manageLibrariesNewName.value = '';
@@ -2010,6 +2036,16 @@ async function openManageLibrariesModal() {
         nameSpan.style.flex = '1';
         nameSpan.style.fontSize = '0.95rem';
 
+        if (currentLibraryId === lib.id) {
+            const checkmark = document.createElement('span');
+            checkmark.textContent = '✓';
+            checkmark.style.color = '#2f7d6c';
+            checkmark.style.fontWeight = 'bold';
+            checkmark.style.marginRight = '0.45rem';
+            item.appendChild(checkmark);
+            item.style.backgroundColor = '#f0f0f0';
+        }
+
         const btnWrap = document.createElement('div');
         btnWrap.className = 'library-item-buttons';
         btnWrap.style.display = 'flex';
@@ -2027,7 +2063,8 @@ async function openManageLibrariesModal() {
             renameBtn.style.cursor = 'pointer';
             renameBtn.style.fontSize = '0.9rem';
             renameBtn.style.padding = '0.2rem 0.4rem';
-            renameBtn.addEventListener('click', async () => {
+            renameBtn.addEventListener('click', async (event) => {
+                event.stopPropagation();
                 const newName = prompt(`Rename library "${lib.name}" to:`, lib.name);
                 if (newName && newName.trim()) {
                     try {
@@ -2052,7 +2089,8 @@ async function openManageLibrariesModal() {
             delBtn.style.cursor = 'pointer';
             delBtn.style.fontSize = '0.9rem';
             delBtn.style.padding = '0.2rem 0.4rem';
-            delBtn.addEventListener('click', async () => {
+            delBtn.addEventListener('click', async (event) => {
+                event.stopPropagation();
                 if (!confirm(`Delete library "${lib.name}"? Songs and sets will be moved to Default.`)) return;
                 try {
                     await deleteLibrary(lib.id);
@@ -2072,6 +2110,25 @@ async function openManageLibrariesModal() {
 
         item.appendChild(nameSpan);
         item.appendChild(btnWrap);
+        item.addEventListener('click', async () => {
+            if (currentLibraryId === lib.id) {
+                closeManageLibrariesModal();
+                return;
+            }
+            if (!(await promptSaveCurrentSet())) return;
+            await switchToLibrary(lib.id);
+            closeManageLibrariesModal();
+        });
+        item.addEventListener('mouseenter', () => {
+            if (currentLibraryId !== lib.id) {
+                item.style.backgroundColor = '#f5f5f5';
+            }
+        });
+        item.addEventListener('mouseleave', () => {
+            if (currentLibraryId !== lib.id) {
+                item.style.backgroundColor = '';
+            }
+        });
         manageLibrariesList.appendChild(item);
     }
 
@@ -2095,106 +2152,6 @@ manageLibrariesAddBtn.addEventListener('click', async () => {
         alert('Error creating library: ' + e.message);
     }
 });
-
-// ── Switch Library Modal ────────────────────────────
-
-const switchLibraryModal = document.getElementById('switch-library-modal');
-const switchLibraryModalClose = document.getElementById('switch-library-modal-close');
-const switchLibraryModalOverlay = document.getElementById('switch-library-modal-overlay');
-const switchLibraryList = document.getElementById('switch-library-list');
-
-function closeSwitchLibraryModal() {
-    switchLibraryModal.classList.add('hidden');
-}
-
-switchLibraryModalClose.addEventListener('click', closeSwitchLibraryModal);
-switchLibraryModalOverlay.addEventListener('click', closeSwitchLibraryModal);
-
-async function openSwitchLibraryModal() {
-    switchLibraryList.innerHTML = '';
-    const libs = await getAllLibraries();
-    
-    for (const lib of libs) {
-        const item = document.createElement('div');
-        item.className = 'library-item';
-        item.style.padding = '0.6rem 0.5rem';
-        item.style.borderBottom = '1px solid #f0f0f0';
-        item.style.cursor = 'pointer';
-        item.style.display = 'flex';
-        item.style.alignItems = 'center';
-        item.style.justifyContent = 'space-between';
-
-        const nameSpan = document.createElement('span');
-        nameSpan.textContent = lib.name;
-        nameSpan.style.fontSize = '0.95rem';
-        nameSpan.style.flex = '1';
-
-        if (currentLibraryId === lib.id) {
-            const checkmark = document.createElement('span');
-            checkmark.textContent = '✓';
-            checkmark.style.color = '#2f7d6c';
-            checkmark.style.fontWeight = 'bold';
-            item.appendChild(checkmark);
-        }
-
-        item.appendChild(nameSpan);
-        item.addEventListener('click', async () => {
-            if (currentLibraryId === lib.id) {
-                closeSwitchLibraryModal();
-                return;
-            }
-
-            // Save the last set used with the old library if applicable
-            if (currentSetlistId && currentLibraryId) {
-                libraryPerSetlist[currentSetlistId] = currentLibraryId;
-            }
-
-            currentLibraryId = lib.id;
-            
-            // Try to restore the last used set for this library
-            currentSetlistId = null;
-            for (const [setId, libId] of Object.entries(libraryPerSetlist)) {
-                if (libId === lib.id) {
-                    const set = await getSetlist(Number(setId));
-                    if (set && set.libraryId === lib.id) {
-                        currentSetlistId = Number(setId);
-                        break;
-                    }
-                }
-            }
-
-            clearSet();
-            saveSessionRef();
-
-            // Optionally restore a set for the new library
-            if (currentSetlistId) {
-                await loadSetlistIntoView(currentSetlistId);
-            }
-
-            populateSelect();
-            renderCurrent();
-            updateNav();
-            closeSwitchLibraryModal();
-        });
-
-        item.style.cursor = 'pointer';
-        if (currentLibraryId === lib.id) {
-            item.style.backgroundColor = '#f0f0f0';
-        }
-        item.addEventListener('mouseenter', () => {
-            item.style.backgroundColor = '#f5f5f5';
-        });
-        item.addEventListener('mouseleave', () => {
-            if (currentLibraryId !== lib.id) {
-                item.style.backgroundColor = '';
-            }
-        });
-
-        switchLibraryList.appendChild(item);
-    }
-
-    switchLibraryModal.classList.remove('hidden');
-}
 
 // ── Library Browser Modal ────────────────────────────
 

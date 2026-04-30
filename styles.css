@@ -168,12 +168,11 @@ body.old-ios-menu #menu-panel {
   outline: none;
 }
 
-/* ── Modals (library browser, load set, save set, manage/switch libraries) ── */
+/* ── Modals (library browser, load set, save set, manage libraries) ── */
 #library-modal,
 #loadset-modal,
 #saveset-modal,
-#manage-libraries-modal,
-#switch-library-modal {
+#manage-libraries-modal {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   z-index: 950;
@@ -186,8 +185,7 @@ body.old-ios-menu #menu-panel {
 #library-modal-overlay,
 #loadset-modal-overlay,
 #saveset-modal-overlay,
-#manage-libraries-modal-overlay,
-#switch-library-modal-overlay {
+#manage-libraries-modal-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.5);
@@ -195,8 +193,7 @@ body.old-ios-menu #menu-panel {
 #library-modal-panel,
 #loadset-modal-panel,
 #saveset-modal-panel,
-#manage-libraries-modal-panel,
-#switch-library-modal-panel {
+#manage-libraries-modal-panel {
   position: relative;
   background: #fff;
   border-radius: 8px;
@@ -210,8 +207,7 @@ body.old-ios-menu #menu-panel {
 #library-modal-header,
 #loadset-modal-header,
 #saveset-modal-header,
-#manage-libraries-modal-header,
-#switch-library-modal-header {
+#manage-libraries-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -222,8 +218,7 @@ body.old-ios-menu #menu-panel {
 #library-modal-header button,
 #loadset-modal-header button,
 #saveset-modal-header button,
-#manage-libraries-modal-header button,
-#switch-library-modal-header button {
+#manage-libraries-modal-header button {
   background: none;
   border: none;
   font-size: 1.3rem;
@@ -296,7 +291,7 @@ body.old-ios-menu #menu-panel {
   background: #266b5c;
 }
 #manage-libraries-list,
-#switch-library-list {
+#manage-libraries-list {
   max-height: 400px;
   overflow-y: auto;
 }
