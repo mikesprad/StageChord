@@ -82,22 +82,22 @@ Edit chords directly in the viewer by tapping/clicking them. Toggle edit mode, t
 
 ---
 
-## 6. Packaged Song Library
+## 6. Song Bundles
 **Status:** Complete  
 **Effort:** Low  
 **Dependencies:** None  
 
-Pre-load a curated song library with the app, so users don't start from scratch.
+Pre-load a curated song collection via the Songs & Help page, so users don't start from scratch.
 
 ### Approach
-- Host a library JSON file at a known URL (e.g. same server, or GitHub raw).
-- Add a menu item (e.g. "Load Shared Library") that fetches the URL and imports all songs.
-- Optionally bundle a snapshot as a local fallback for offline/first-load.
-- Uses the existing `importLibrary()` function — no new DB logic needed.
+- Host a bundle JSON file at a known path on the same server.
+- Songs & Help lists available bundles with an "Import Bundle into Current Library" button and a Download link.
+- Clicking Import stores the URL and active library id in localStorage, redirects to the app, which fetches and imports the bundle into the active library.
+- Uses `importLibrary()` — no new DB logic needed.
 
 ### Considerations
-- Library JSON is the same format as "Export Library" produces.
-- Updates are easy: edit the hosted file, users re-import to get new songs.
+- Bundle JSON version-agnostic: accepts any version field or a plain songs array.
+- Imports always go into the active library (not always Default).
 
 ---
 
@@ -116,22 +116,42 @@ A collection of small UX enhancements:
 - **Older iPad compatibility:** Added fallback action buttons for adding songs and browsing the library when the Manage menu may not behave reliably.
 - **iOS 15 reliability hardening:** Replaced Safari-15-incompatible regex lookbehind in chord-edit tokenization so the main app module loads on older Safari engines.
 - **Desktop-mode iPad detection:** Added fallback detection for iPadOS devices that report as `Macintosh` Safari 15, ensuring the compatible menu path is chosen.
-- **Non-module import fallback:** When the module app cannot load, fallback script now imports songs, libraries, and set files directly into IndexedDB, including Songs & Help pending library imports.
+- **Non-module import fallback:** When the module app cannot load, fallback script imports bundles and set files directly into IndexedDB. Fallback DB version matches main app (v2). Bundle imports go into active library via pending library id handoff.
 - **Font size controls:** Added `Aa-` / `Aa+` controls that scale lyric and chord text together while keeping alignment intact.
 - **Manage Set:** Renamed the song order panel to Manage Set and added a remove-song control in the reorder list.
-- **Contact email:** A "Contact" mailto link (`stagechord@spradbery.com`) is shown at the bottom of the Manage menu.
-- **Usage tracking:** A silent 1×1 tracking pixel is requested on app load (`https://spradbery.com/stagechord/ping.gif`) to count usage. Fails silently if offline — no errors shown to the user.
+- **Contact email:** A mailto link (`stagechord@spradbery.com`) is shown at the bottom of Songs & Help (removed from main menu).
 - **Button row:** Comment, Stave, and Edit buttons are on their own line below the key/tempo info for a cleaner layout.
-- **Edit mode (key/tempo):** The "Edit" button (formerly "Edit Chords") now also exposes inline Key and Tempo fields. Editing the key respects the current transpose offset — the stored key is un-transposed before writing back to the ChordPro `{key:}` directive. Tempo is written as `{tempo:}`. Both are standard ChordPro metadata directives.
-- Could auto-import on first visit (empty IndexedDB) for zero-friction onboarding.
+- **Edit mode (key/tempo):** The "Edit" button now also exposes inline Key and Tempo fields. Editing the key respects the current transpose offset. Both use standard ChordPro metadata directives.
 
 ---
 
-## Priority Order (suggested)
-1. **#1 PWA** ✅ Complete
-2. **#2 Session Sharing** ✅ Complete
-3. **#4 Musical Stave** ✅ Complete
-4. **#5 In-App Chord Editing** ✅ Complete
-5. **#7 Quick UI Improvements** ✅ Complete
-6. **#3 Online Song Directory** — Complete
-7. **#6 Packaged Song Library** — Complete
+---
+
+## 8. Multi-Library Support
+**Status:** Complete  
+**Effort:** High  
+**Dependencies:** None  
+
+Organise songs and sets into separate libraries (e.g. Church, Funk Band). Each library is an isolated context with its own songs and saved sets.
+
+### Implementation
+- **IndexedDB v2 migration:** New `libraries` store. `songs` and `setlists` get a `libraryId` field. Existing rows migrated to Default on upgrade.
+- **Default library:** Created on first run (id=1). Cannot be renamed or deleted.
+- **Switch Library:** Prompts to save current set first. Restores last-used set for the target library.
+- **Manage Libraries:** Create (17-char name limit, unique), rename, or delete. Delete moves songs and sets to Default.
+- **Library-scoped queries:** `getAllSongs`, `getAllSetlists`, `addSong`, `saveSetlist`, `importLibrary`, `importSetlist` all accept `libraryId`.
+- **Duplicate detection:** Per-library compound index `libraryContentHash` replaces the old global content-hash index.
+- **Session persistence:** `currentLibraryId` and `libraryPerSetlist` written to localStorage on every change; flushed on every app startup so other pages always read the correct library.
+- **Songs & Help import:** `stagechord_pending_import_library_id` carries the active library id across the redirect; app reads it directly without a DB round-trip.
+
+---
+
+## Priority Order
+1. **#1 PWA** ✅
+2. **#2 Session Sharing** ✅
+3. **#4 Musical Stave** ✅
+4. **#5 In-App Chord Editing** ✅
+5. **#7 Quick UI Improvements** ✅
+6. **#3 Online Song Directory** ✅
+7. **#6 Song Bundles** ✅
+8. **#8 Multi-Library Support** ✅

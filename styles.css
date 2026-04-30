@@ -168,10 +168,12 @@ body.old-ios-menu #menu-panel {
   outline: none;
 }
 
-/* ── Modals (library browser, load set, save set) ── */
+/* ── Modals (library browser, load set, save set, manage/switch libraries) ── */
 #library-modal,
 #loadset-modal,
-#saveset-modal {
+#saveset-modal,
+#manage-libraries-modal,
+#switch-library-modal {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   z-index: 950;
@@ -183,14 +185,18 @@ body.old-ios-menu #menu-panel {
 }
 #library-modal-overlay,
 #loadset-modal-overlay,
-#saveset-modal-overlay {
+#saveset-modal-overlay,
+#manage-libraries-modal-overlay,
+#switch-library-modal-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.5);
 }
 #library-modal-panel,
 #loadset-modal-panel,
-#saveset-modal-panel {
+#saveset-modal-panel,
+#manage-libraries-modal-panel,
+#switch-library-modal-panel {
   position: relative;
   background: #fff;
   border-radius: 8px;
@@ -203,7 +209,9 @@ body.old-ios-menu #menu-panel {
 }
 #library-modal-header,
 #loadset-modal-header,
-#saveset-modal-header {
+#saveset-modal-header,
+#manage-libraries-modal-header,
+#switch-library-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -213,7 +221,9 @@ body.old-ios-menu #menu-panel {
 }
 #library-modal-header button,
 #loadset-modal-header button,
-#saveset-modal-header button {
+#saveset-modal-header button,
+#manage-libraries-modal-header button,
+#switch-library-modal-header button {
   background: none;
   border: none;
   font-size: 1.3rem;
@@ -255,6 +265,48 @@ body.old-ios-menu #menu-panel {
 }
 #library-add-selected:hover {
   background: #266b5c;
+}
+#manage-libraries-form {
+  margin-bottom: 0.75rem;
+}
+#manage-libraries-add-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+#manage-libraries-new-name {
+  flex: 1;
+  padding: 0.4rem;
+  font-size: 0.95rem;
+  border: 1px solid #bbb;
+  border-radius: 4px;
+}
+#manage-libraries-add {
+  padding: 0.4rem 0.8rem;
+  background: #2f7d6c;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+#manage-libraries-add:hover {
+  background: #266b5c;
+}
+#manage-libraries-list,
+#switch-library-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+.library-item {
+  padding: 0.5rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+.library-item-buttons {
+  display: flex;
+  gap: 0.25rem;
 }
 .setlist-item {
   display: flex;

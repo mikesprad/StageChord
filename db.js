@@ -2,7 +2,9 @@
 // Stores: songs (library), songState (user changes), setlists
 
 const DB_NAME = 'stagechord';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
+const DEFAULT_LIBRARY_ID = 1;
+const LIBRARY_NAME_LIMIT = 17;
 
 let dbPromise = null;
 
@@ -12,23 +14,285 @@ function openDB() {
         const req = indexedDB.open(DB_NAME, DB_VERSION);
         req.onupgradeneeded = (e) => {
             const db = e.target.result;
+            const tx = e.target.transaction;
+
             if (!db.objectStoreNames.contains('songs')) {
                 const songStore = db.createObjectStore('songs', { keyPath: 'id', autoIncrement: true });
                 songStore.createIndex('filename', 'filename', { unique: false });
                 songStore.createIndex('contentHash', 'contentHash', { unique: false });
+                songStore.createIndex('libraryId', 'libraryId', { unique: false });
+                songStore.createIndex('libraryContentHash', ['libraryId', 'contentHash'], { unique: false });
+            } else {
+                const songStore = tx.objectStore('songs');
+                if (!songStore.indexNames.contains('libraryId')) {
+                    songStore.createIndex('libraryId', 'libraryId', { unique: false });
+                }
+                if (!songStore.indexNames.contains('libraryContentHash')) {
+                    songStore.createIndex('libraryContentHash', ['libraryId', 'contentHash'], { unique: false });
+                }
             }
+
             if (!db.objectStoreNames.contains('songState')) {
                 const stateStore = db.createObjectStore('songState', { keyPath: 'songId' });
                 stateStore.createIndex('songId', 'songId', { unique: true });
             }
+
             if (!db.objectStoreNames.contains('setlists')) {
-                db.createObjectStore('setlists', { keyPath: 'id', autoIncrement: true });
+                const setStore = db.createObjectStore('setlists', { keyPath: 'id', autoIncrement: true });
+                setStore.createIndex('libraryId', 'libraryId', { unique: false });
+            } else {
+                const setStore = tx.objectStore('setlists');
+                if (!setStore.indexNames.contains('libraryId')) {
+                    setStore.createIndex('libraryId', 'libraryId', { unique: false });
+                }
+            }
+
+            if (!db.objectStoreNames.contains('libraries')) {
+                const libStore = db.createObjectStore('libraries', { keyPath: 'id', autoIncrement: true });
+                libStore.createIndex('lowerName', 'lowerName', { unique: true });
+                libStore.createIndex('isDefault', 'isDefault', { unique: false });
+            }
+
+            if (e.oldVersion < 2) {
+                const libStore = tx.objectStore('libraries');
+                libStore.put({
+                    id: DEFAULT_LIBRARY_ID,
+                    name: 'Default',
+                    lowerName: 'default',
+                    isDefault: true,
+                    createdAt: Date.now()
+                });
+
+                const songStore = tx.objectStore('songs');
+                songStore.openCursor().onsuccess = (evt) => {
+                    const cursor = evt.target.result;
+                    if (!cursor) return;
+                    const row = cursor.value;
+                    if (!row.libraryId) {
+                        row.libraryId = DEFAULT_LIBRARY_ID;
+                        cursor.update(row);
+                    }
+                    cursor.continue();
+                };
+
+                const setStore = tx.objectStore('setlists');
+                setStore.openCursor().onsuccess = (evt) => {
+                    const cursor = evt.target.result;
+                    if (!cursor) return;
+                    const row = cursor.value;
+                    if (!row.libraryId) {
+                        row.libraryId = DEFAULT_LIBRARY_ID;
+                        cursor.update(row);
+                    }
+                    cursor.continue();
+                };
             }
         };
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
     });
     return dbPromise;
+}
+
+function requestToPromise(req) {
+    return new Promise((resolve, reject) => {
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+function normalizeLibraryName(name) {
+    return String(name || '').trim().replace(/\s+/g, ' ');
+}
+
+function normalizeLibraryLower(name) {
+    return normalizeLibraryName(name).toLowerCase();
+}
+
+function validateLibraryName(name) {
+    const normalized = normalizeLibraryName(name);
+    if (!normalized) {
+        throw new Error('Library name is required');
+    }
+    if (normalized.length > LIBRARY_NAME_LIMIT) {
+        throw new Error(`Library name must be ${LIBRARY_NAME_LIMIT} characters or less`);
+    }
+    return normalized;
+}
+
+export async function getDefaultLibrary() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction('libraries', 'readonly');
+        const idx = tx.objectStore('libraries').index('isDefault');
+        const req = idx.get(true);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function getDefaultLibraryId() {
+    const def = await getDefaultLibrary();
+    if (def && def.id) return def.id;
+    return DEFAULT_LIBRARY_ID;
+}
+
+export async function getAllLibraries() {
+    const db = await openDB();
+    const libs = await new Promise((resolve, reject) => {
+        const tx = db.transaction('libraries', 'readonly');
+        const req = tx.objectStore('libraries').getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+    });
+    libs.sort((a, b) => {
+        if (a.isDefault && !b.isDefault) return -1;
+        if (!a.isDefault && b.isDefault) return 1;
+        return a.name.localeCompare(b.name);
+    });
+    return libs;
+}
+
+export async function getLibrary(id) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction('libraries', 'readonly');
+        const req = tx.objectStore('libraries').get(id);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+export async function addLibrary(name) {
+    const db = await openDB();
+    const clean = validateLibraryName(name);
+    const lowerName = normalizeLibraryLower(clean);
+
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction('libraries', 'readwrite');
+        const store = tx.objectStore('libraries');
+        const idx = store.index('lowerName');
+        const checkReq = idx.get(lowerName);
+
+        checkReq.onsuccess = () => {
+            if (checkReq.result) {
+                reject(new Error('Library name already exists'));
+                return;
+            }
+            const addReq = store.add({
+                name: clean,
+                lowerName,
+                isDefault: false,
+                createdAt: Date.now()
+            });
+            addReq.onsuccess = () => resolve(addReq.result);
+            addReq.onerror = () => reject(addReq.error);
+        };
+        checkReq.onerror = () => reject(checkReq.error);
+    });
+}
+
+export async function renameLibrary(libraryId, name) {
+    const db = await openDB();
+    const clean = validateLibraryName(name);
+    const lowerName = normalizeLibraryLower(clean);
+
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction('libraries', 'readwrite');
+        const store = tx.objectStore('libraries');
+        const getReq = store.get(libraryId);
+
+        getReq.onsuccess = () => {
+            const lib = getReq.result;
+            if (!lib) {
+                reject(new Error('Library not found'));
+                return;
+            }
+            if (lib.isDefault) {
+                reject(new Error('Default library cannot be renamed'));
+                return;
+            }
+
+            const idx = store.index('lowerName');
+            const dupReq = idx.get(lowerName);
+            dupReq.onsuccess = () => {
+                if (dupReq.result && dupReq.result.id !== lib.id) {
+                    reject(new Error('Library name already exists'));
+                    return;
+                }
+                lib.name = clean;
+                lib.lowerName = lowerName;
+                lib.updatedAt = Date.now();
+                const putReq = store.put(lib);
+                putReq.onsuccess = () => resolve(lib);
+                putReq.onerror = () => reject(putReq.error);
+            };
+            dupReq.onerror = () => reject(dupReq.error);
+        };
+
+        getReq.onerror = () => reject(getReq.error);
+    });
+}
+
+export async function deleteLibrary(libraryId) {
+    const db = await openDB();
+    const defaultLibraryId = await getDefaultLibraryId();
+    if (!libraryId || libraryId === defaultLibraryId) {
+        throw new Error('Default library cannot be deleted');
+    }
+
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(['libraries', 'songs', 'setlists'], 'readwrite');
+        const libStore = tx.objectStore('libraries');
+        const songStore = tx.objectStore('songs');
+        const setStore = tx.objectStore('setlists');
+        const songIdx = songStore.index('libraryId');
+        const setIdx = setStore.index('libraryId');
+
+        let movedSongs = 0;
+        let movedSets = 0;
+
+        const libReq = libStore.get(libraryId);
+        libReq.onsuccess = () => {
+            const lib = libReq.result;
+            if (!lib) {
+                reject(new Error('Library not found'));
+                return;
+            }
+            if (lib.isDefault) {
+                reject(new Error('Default library cannot be deleted'));
+                return;
+            }
+
+            const songsReq = songIdx.getAll(libraryId);
+            songsReq.onsuccess = () => {
+                const rows = songsReq.result || [];
+                for (const row of rows) {
+                    row.libraryId = defaultLibraryId;
+                    songStore.put(row);
+                    movedSongs++;
+                }
+            };
+            songsReq.onerror = () => reject(songsReq.error);
+
+            const setsReq = setIdx.getAll(libraryId);
+            setsReq.onsuccess = () => {
+                const rows = setsReq.result || [];
+                for (const row of rows) {
+                    row.libraryId = defaultLibraryId;
+                    setStore.put(row);
+                    movedSets++;
+                }
+            };
+            setsReq.onerror = () => reject(setsReq.error);
+
+            libStore.delete(libraryId);
+        };
+        libReq.onerror = () => reject(libReq.error);
+
+        tx.oncomplete = () => resolve({ movedSongs, movedSets, defaultLibraryId });
+        tx.onerror = () => reject(tx.error);
+    });
 }
 
 // Simple content hash (works on both HTTP and HTTPS)
@@ -46,15 +310,15 @@ function hashText(text) {
 
 // ── Songs (library) ─────────────────────────────────
 
-export async function addSong(filename, originalText) {
+export async function addSong(filename, originalText, libraryId = DEFAULT_LIBRARY_ID) {
     const db = await openDB();
     const hash = hashText(originalText);
 
-    // Check for duplicate by content hash
+    // Check for duplicate by content hash within this library
     const existing = await new Promise((resolve, reject) => {
         const tx = db.transaction('songs', 'readonly');
-        const idx = tx.objectStore('songs').index('contentHash');
-        const req = idx.getAll(hash);
+        const idx = tx.objectStore('songs').index('libraryContentHash');
+        const req = idx.getAll([libraryId, hash]);
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
     });
@@ -66,6 +330,7 @@ export async function addSong(filename, originalText) {
         const tx = db.transaction('songs', 'readwrite');
         const store = tx.objectStore('songs');
         const req = store.add({
+            libraryId,
             filename,
             originalText,
             contentHash: hash,
@@ -86,12 +351,21 @@ export async function getSong(id) {
     });
 }
 
-export async function getAllSongs() {
+export async function getAllSongs(libraryId = null) {
     const db = await openDB();
+    if (!libraryId) {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('songs', 'readonly');
+            const req = tx.objectStore('songs').getAll();
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    }
     return new Promise((resolve, reject) => {
         const tx = db.transaction('songs', 'readonly');
-        const req = tx.objectStore('songs').getAll();
-        req.onsuccess = () => resolve(req.result);
+        const idx = tx.objectStore('songs').index('libraryId');
+        const req = idx.getAll(libraryId);
+        req.onsuccess = () => resolve(req.result || []);
         req.onerror = () => reject(req.error);
     });
 }
@@ -141,6 +415,9 @@ export async function saveSongState(songId, state) {
 
 export async function saveSetlist(setlist) {
     const db = await openDB();
+    if (!setlist.libraryId) {
+        setlist.libraryId = await getDefaultLibraryId();
+    }
     return new Promise((resolve, reject) => {
         const tx = db.transaction('setlists', 'readwrite');
         const store = tx.objectStore('setlists');
@@ -165,12 +442,21 @@ export async function getSetlist(id) {
     });
 }
 
-export async function getAllSetlists() {
+export async function getAllSetlists(libraryId = null) {
     const db = await openDB();
+    if (!libraryId) {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('setlists', 'readonly');
+            const req = tx.objectStore('setlists').getAll();
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    }
     return new Promise((resolve, reject) => {
         const tx = db.transaction('setlists', 'readonly');
-        const req = tx.objectStore('setlists').getAll();
-        req.onsuccess = () => resolve(req.result);
+        const idx = tx.objectStore('setlists').index('libraryId');
+        const req = idx.getAll(libraryId);
+        req.onsuccess = () => resolve(req.result || []);
         req.onerror = () => reject(req.error);
     });
 }
@@ -187,8 +473,9 @@ export async function deleteSetlist(id) {
 
 // ── Export / Import Library ─────────────────────────
 
-export async function exportLibrary() {
-    const songs = await getAllSongs();
+export async function exportLibrary(libraryId = DEFAULT_LIBRARY_ID) {
+    const songs = await getAllSongs(libraryId);
+    const library = await getLibrary(libraryId);
     const db = await openDB();
     const states = await new Promise((resolve, reject) => {
         const tx = db.transaction('songState', 'readonly');
@@ -200,7 +487,9 @@ export async function exportLibrary() {
     states.forEach(s => { stateMap[s.songId] = s; });
 
     const data = {
-        version: 1,
+        version: 2,
+        type: 'bundle',
+        libraryName: library ? library.name : 'Library',
         exportedAt: new Date().toISOString(),
         songs: songs.map(song => ({
             filename: song.filename,
@@ -217,15 +506,29 @@ export async function exportLibrary() {
     return data;
 }
 
-export async function importLibrary(data) {
-    if (!data || !Array.isArray(data.songs)) {
-        throw new Error('Invalid library file');
+export async function importLibrary(data, libraryId = DEFAULT_LIBRARY_ID) {
+    // Accept bundle objects (any version metadata) or plain arrays of songs.
+    let songs = null;
+    if (Array.isArray(data)) {
+        songs = data;
+    } else if (data && Array.isArray(data.songs)) {
+        songs = data.songs;
+    } else if (data && data.bundle && Array.isArray(data.bundle.songs)) {
+        songs = data.bundle.songs;
     }
+    if (!songs) {
+        throw new Error('Invalid bundle file: expected a songs array');
+    }
+
     let imported = 0;
     let skipped = 0;
-    for (const entry of data.songs) {
-        if (!entry.originalText || !entry.filename) continue;
-        const id = await addSong(entry.filename, entry.originalText);
+    for (const entry of songs) {
+        if (!entry) continue;
+        const filename = entry.filename || entry.name || 'Imported Song.chopro';
+        const originalText = entry.originalText || entry.text || null;
+        if (!originalText) continue;
+
+        const id = await addSong(filename, originalText, libraryId);
         // Check if this was a new import (no existing state) and entry has state
         if (entry.state) {
             const existingState = await getSongState(id);
@@ -269,7 +572,7 @@ export async function exportSetlist(setlistId) {
     }
 
     return {
-        version: 1,
+        version: 2,
         type: 'setlist',
         exportedAt: new Date().toISOString(),
         name: setlist.name,
@@ -277,14 +580,14 @@ export async function exportSetlist(setlistId) {
     };
 }
 
-export async function importSetlist(data) {
+export async function importSetlist(data, libraryId = DEFAULT_LIBRARY_ID) {
     if (!data || data.type !== 'setlist' || !Array.isArray(data.songs)) {
         throw new Error('Invalid setlist file');
     }
     const songIds = [];
     for (const entry of data.songs) {
         if (!entry.originalText || !entry.filename) continue;
-        const id = await addSong(entry.filename, entry.originalText);
+        const id = await addSong(entry.filename, entry.originalText, libraryId);
         if (entry.state) {
             const existingState = await getSongState(id);
             if (!existingState || !existingState.updatedAt) {
@@ -295,6 +598,7 @@ export async function importSetlist(data) {
     }
     const setlist = {
         name: data.name || 'Imported Set',
+        libraryId,
         songIds,
         currentIndex: 0,
         createdAt: Date.now()

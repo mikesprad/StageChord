@@ -183,13 +183,13 @@
         <p>StageChord is a mobile-friendly viewer for songs written in <strong>ChordPro format</strong>. All your songs and settings are stored on your device — nothing is sent to a server, and the app works offline once installed.</p>
 
         <!-- ============================================ -->
-        <!--  SONG LIBRARIES                              -->
+        <!--  SONG BUNDLES                                -->
         <!-- ============================================ -->
         <div class="section-header">
-            <h2 id="song-libraries">Song Libraries</h2>
+            <h2 id="song-libraries">Song Bundles</h2>
             <button class="btn-refresh" onclick="checkForNew()">Check for new</button>
         </div>
-        <p>Browse available song collections below. You can <strong>import directly</strong> into your StageChord library, or <strong>download</strong> the file to import later.</p>
+        <p>Browse available song bundles below. You can <strong>import directly</strong> into your currently selected library, or <strong>download</strong> the file to import later.</p>
 
         <div class="songlib-card">
             <!-- ─── ADD NEW SONG LIBRARIES HERE ───
@@ -200,7 +200,7 @@
             <h3>Worship Collection 1</h3>
             <p>A small collection of well-known worship songs to get started.</p>
             <div class="songlib-actions">
-                <button class="btn-import" onclick="importLib('songlibs/worship_library_1.json')">Import into StageChord</button>
+                <button class="btn-import" onclick="importLib('songlibs/worship_library_1.json')">Import Bundle into Current Library</button>
                 <a class="btn-download" href="songlibs/worship_library_1.json" download>Download</a>
             </div>
             
@@ -226,9 +226,8 @@
                 <li><a href="#guide-stave">Musical Stave (Notation)</a></li>
                 <li><a href="#guide-comments">Comments &amp; Annotations</a></li>
                 <li><a href="#guide-sets">Sets (Setlists)</a></li>
-                <li><a href="#guide-sharing">Sharing Sets</a></li>
-                <li><a href="#guide-library">Song Library</a></li>
-                <li><a href="#guide-import-export">Import &amp; Export</a></li>
+                <li><a href="#guide-library">Libraries</a></li>
+                <li><a href="#guide-import-export">Import Bundles &amp; Export</a></li>
                 <li><a href="#guide-install">Installing as an App</a></li>
             </ul>
         </div>
@@ -237,7 +236,7 @@
         <div class="section" id="guide-getting-started">
             <h3>Getting Started</h3>
             <p>ChordPro is a simple text format that puts chord names in square brackets above the lyrics, like <code>[G]Amazing [C]grace</code>. You can find ChordPro files online, or create your own in any text editor.</p>
-            <p>To get started, add some songs using the <strong>☰ Manage</strong> menu, or import a song library from the <a href="#song-libraries">Song Libraries</a> section above.</p>
+            <p>To get started, add some songs using the <strong>☰ Manage</strong> menu, or import a bundle from the <a href="#song-libraries">Song Bundles</a> section above.</p>
         </div>
 
         <!-- Adding Songs -->
@@ -245,7 +244,7 @@
             <h3>Adding Songs</h3>
             <p>Open the <strong>☰ Manage</strong> menu and tap <strong>Add Songs to Library</strong>. You can select one or more <code>.chopro</code>, <code>.chordpro</code>, or plain text files from your device.</p>
             <p>Songs are stored in your <strong>library</strong> on the device. After adding, use <strong>Add songs to set</strong> to select which songs to include in your current set.</p>
-            <p>You can also import song libraries directly from the <a href="#song-libraries">Song Libraries</a> section on this page.</p>
+            <p>You can also import bundles directly from the <a href="#song-libraries">Song Bundles</a> section on this page.</p>
         </div>
 
         <!-- Song Navigation -->
@@ -322,41 +321,43 @@
                 <li><strong>New Set:</strong> Clears the current set to start fresh.</li>
                 <li><strong>Save Set:</strong> Saves the current set with a name. You can overwrite an existing set or create a new one.</li>
                 <li><strong>Load Set:</strong> Opens a picker showing all saved sets with their song counts. You can also delete sets from this picker.</li>
-                <li><strong>Import Set:</strong> Load a <code>.stagechord.json</code> set file. Songs are added to your library and the set is created automatically.</li>
+                <li><strong>Import Set:</strong> Load a <code>.stagechord.json</code> set file. Songs are added to your current library and the set is created automatically.</li>
+                <li><strong>Share as File:</strong> Exports the current set as a <code>.stagechord.json</code> file — use this to back up or share a set with another device.</li>
+                <li><strong>Share as Link:</strong> Compresses the set into a URL. The recipient opens it and the set imports automatically.</li>
             </ul>
             <p>Your current set (song order and position) is automatically remembered between sessions, even without saving.</p>
         </div>
 
-        <!-- Sharing -->
-        <div class="section" id="guide-sharing">
-            <h3>Sharing Sets</h3>
-            <p>Share your setlist with bandmates in two ways:</p>
-            <ul>
-                <li><strong>Share as Link:</strong> Generates a URL containing the entire set (compressed). Send the link via messaging — recipients open it in their browser and the set imports automatically. Note: very large sets may exceed URL length limits.</li>
-                <li><strong>Share as File:</strong> Sends a <code>.stagechord.json</code> file via your device's share menu (or downloads it). The recipient imports it through the menu.</li>
-            </ul>
-        </div>
+
 
 
         <!-- Library -->
         <div class="section" id="guide-library">
-            <h3>Song Library</h3>
-            <p>Your <strong>library</strong> contains all songs you've added or imported. From the menu:</p>
+            <h3>Libraries</h3>
+            <p>A <strong>library</strong> is your in-app song container. Think of separate contexts such as <strong>Church</strong> and <strong>Funk Band</strong>: each library keeps its own songs and saved sets.</p>
+            <p>Use libraries to keep your content organized by ministry, band, or event type while staying in one StageChord app.</p>
+            <p>From the menu:</p>
             <ul>
+                <li><strong>Switch Library:</strong> Move between libraries. Your current set and saved sets are library-specific.</li>
+                <li><strong>Manage Libraries:</strong> Create, rename, or delete libraries. Deleting a library moves its songs and sets to Default.</li>
                 <li><strong>Add Songs to Library:</strong> Import <code>.chopro</code> or text files from your device.</li>
                 <li><strong>Add Songs to Set:</strong> Use checkboxes to include or remove songs from your current set.</li>
-            <li><strong>Delete Songs from Library:</strong> View all imported songs and delete any you no longer need.</li>
+                <li><strong>Delete Songs from Library:</strong> View all imported songs and delete any you no longer need.</li>
             </ul>
-            <p>Songs in the library persist until you delete them. Transpose settings, staves, and edits are saved per song.</p>
+            <p>Songs in each library persist until you delete them. Transpose settings, staves, and edits are saved per song.</p>
         </div>
 
         <!-- Import & Export -->
         <div class="section" id="guide-import-export">
-            <h3>Import &amp; Export</h3>
-            <h4 style="margin-top:0.6rem;">Library</h4>
+            <h3>Import Bundles &amp; Export</h3>
+            <h4 style="margin-top:0.6rem;">Import Bundles</h4>
             <ul>
-                <li><strong>Export Library:</strong> Downloads your entire library as a <code>.json</code> file — includes all songs, transpose settings, staves, and edits. Great for backups.</li>
-                <li><strong>Import Library:</strong> Loads a previously exported library file. You'll be asked whether to <strong>add</strong> alongside existing songs, <strong>replace</strong> your library entirely, or <strong>export</strong> a backup first. Duplicate songs (identical content) are automatically skipped.</li>
+                <li><strong>Import Bundle:</strong> Loads a previously exported bundle into the current library. You'll be asked whether to <strong>add</strong> alongside existing songs, <strong>replace</strong> current-library songs, or <strong>export</strong> a backup first. Duplicate songs (identical content) are automatically skipped.</li>
+                <li><strong>Songs &amp; Help Import:</strong> The "Import Bundle into Current Library" button imports directly into whichever library is currently active in StageChord.</li>
+            </ul>
+            <h4 style="margin-top:0.8rem;">Export Bundles</h4>
+            <ul>
+                <li><strong>Export Bundle:</strong> Downloads the current library as a <code>.json</code> bundle — includes songs, transpose settings, staves, and edits. Great for backups.</li>
             </ul>
         </div>
 
@@ -381,6 +382,17 @@
         function importLib(url) {
             // Store pending import in localStorage, then navigate to app
             localStorage.setItem('stagechord_pending_import', url);
+            try {
+                var rawLibId = localStorage.getItem('stagechord_active_library');
+                var libId = Number(rawLibId);
+                if (Number.isFinite(libId) && libId > 0) {
+                    localStorage.setItem('stagechord_pending_import_library_id', String(libId));
+                } else {
+                    localStorage.removeItem('stagechord_pending_import_library_id');
+                }
+            } catch (_) {
+                localStorage.removeItem('stagechord_pending_import_library_id');
+            }
             window.location.href = 'index.html';
         }
 

@@ -37,10 +37,12 @@
         </div>
         <div class="menu-section">
             <div class="menu-section-title">Library</div>
+            <button id="menu-switch-library" type="button">Switch Library</button>
+            <button id="menu-manage-libraries" type="button">Manage Libraries</button>
             <button id="menu-add-songs" type="button">Add Songs to Library</button>
-            <button id="menu-manage-library" type="button">Delete Songs from Library</button>
-            <button id="menu-export-library" type="button">Export Library</button>
-            <button id="menu-import-library" type="button">Import Library</button>
+            <button id="menu-delete-songs" type="button">Delete Songs from Library</button>
+            <button id="menu-export-library" type="button">Export Bundle</button>
+            <button id="menu-import-library" type="button">Import Bundle</button>
         </div>
         <div class="menu-section">
             <button id="menu-install-app" type="button" class="hidden">Add as App</button>
@@ -50,9 +52,6 @@
         </div>
         <div class="menu-section menu-contact">
             <a href="#" id="menu-check-update">Check for Update</a>
-        </div>
-        <div class="menu-section menu-contact">
-            <a href="mailto:stagechord@spradbery.com">Contact</a>
         </div>
         <input type="file" id="file-input" multiple accept="*/*" class="file-input-offscreen">
         <input type="file" id="import-library-input" accept=".json" class="file-input-offscreen">
@@ -78,10 +77,12 @@
             </div>
             <div class="menu-section">
                 <div class="menu-section-title">Library</div>
+                <button id="ios-menu-switch-library" type="button">Switch Library</button>
+                <button id="ios-menu-manage-libraries" type="button">Manage Libraries</button>
                 <button id="ios-menu-add-songs" type="button">Add Songs to Library</button>
-                <button id="ios-menu-manage-library" type="button">Delete Songs from Library</button>
-                <button id="ios-menu-export-library" type="button">Export Library</button>
-                <button id="ios-menu-import-library" type="button">Import Library</button>
+                <button id="ios-menu-delete-songs" type="button">Delete Songs from Library</button>
+                <button id="ios-menu-export-library" type="button">Export Bundle</button>
+                <button id="ios-menu-import-library" type="button">Import Bundle</button>
             </div>
             <div class="menu-section">
                 <button id="ios-menu-install-app" type="button" class="hidden">Add as App</button>
@@ -91,9 +92,6 @@
             </div>
             <div class="menu-section menu-contact">
                 <a href="#" id="ios-menu-check-update">Check for Update</a>
-            </div>
-            <div class="menu-section menu-contact">
-                <a href="mailto:stagechord@spradbery.com">Contact</a>
             </div>
         </div>
     </div>
@@ -180,6 +178,36 @@
         </div>
     </div>
 
+    <!-- Manage libraries modal -->
+    <div id="manage-libraries-modal" class="hidden">
+        <div id="manage-libraries-modal-overlay"></div>
+        <div id="manage-libraries-modal-panel">
+            <div id="manage-libraries-modal-header">
+                <span>Manage Libraries</span>
+                <button id="manage-libraries-modal-close" type="button">✕</button>
+            </div>
+            <div id="manage-libraries-form">
+                <div id="manage-libraries-add-row">
+                    <input type="text" id="manage-libraries-new-name" placeholder="New library name..." maxlength="17">
+                    <button id="manage-libraries-add" type="button">+</button>
+                </div>
+            </div>
+            <div id="manage-libraries-list"></div>
+        </div>
+    </div>
+
+    <!-- Switch library dropdown modal -->
+    <div id="switch-library-modal" class="hidden">
+        <div id="switch-library-modal-overlay"></div>
+        <div id="switch-library-modal-panel">
+            <div id="switch-library-modal-header">
+                <span>Switch Library</span>
+                <button id="switch-library-modal-close" type="button">✕</button>
+            </div>
+            <div id="switch-library-list"></div>
+        </div>
+    </div>
+
     <script type="module" src="app.js?v=20260415T2"></script>
     <script>
         if ('serviceWorker' in navigator) {
@@ -222,7 +250,8 @@
 
             // Minimal IndexedDB fallback so imports still work when app module fails.
             const FALLBACK_DB_NAME = 'stagechord';
-            const FALLBACK_DB_VERSION = 1;
+            const FALLBACK_DB_VERSION = 2;
+            const FALLBACK_DEFAULT_LIBRARY_ID = 1;
             let fallbackDbPromise = null;
 
             function openFallbackDb() {
@@ -231,17 +260,74 @@
                     const req = indexedDB.open(FALLBACK_DB_NAME, FALLBACK_DB_VERSION);
                     req.onupgradeneeded = function(e) {
                         const db = e.target.result;
+                        const tx = e.target.transaction;
                         if (!db.objectStoreNames.contains('songs')) {
                             const songStore = db.createObjectStore('songs', { keyPath: 'id', autoIncrement: true });
                             songStore.createIndex('filename', 'filename', { unique: false });
                             songStore.createIndex('contentHash', 'contentHash', { unique: false });
+                            songStore.createIndex('libraryId', 'libraryId', { unique: false });
+                            songStore.createIndex('libraryContentHash', ['libraryId', 'contentHash'], { unique: false });
+                        } else {
+                            const songStore = tx.objectStore('songs');
+                            if (!songStore.indexNames.contains('libraryId')) {
+                                songStore.createIndex('libraryId', 'libraryId', { unique: false });
+                            }
+                            if (!songStore.indexNames.contains('libraryContentHash')) {
+                                songStore.createIndex('libraryContentHash', ['libraryId', 'contentHash'], { unique: false });
+                            }
                         }
                         if (!db.objectStoreNames.contains('songState')) {
                             const stateStore = db.createObjectStore('songState', { keyPath: 'songId' });
                             stateStore.createIndex('songId', 'songId', { unique: true });
                         }
                         if (!db.objectStoreNames.contains('setlists')) {
-                            db.createObjectStore('setlists', { keyPath: 'id', autoIncrement: true });
+                            const setStore = db.createObjectStore('setlists', { keyPath: 'id', autoIncrement: true });
+                            setStore.createIndex('libraryId', 'libraryId', { unique: false });
+                        } else {
+                            const setStore = tx.objectStore('setlists');
+                            if (!setStore.indexNames.contains('libraryId')) {
+                                setStore.createIndex('libraryId', 'libraryId', { unique: false });
+                            }
+                        }
+                        if (!db.objectStoreNames.contains('libraries')) {
+                            const libStore = db.createObjectStore('libraries', { keyPath: 'id', autoIncrement: true });
+                            libStore.createIndex('lowerName', 'lowerName', { unique: true });
+                            libStore.createIndex('isDefault', 'isDefault', { unique: false });
+                        }
+
+                        if (e.oldVersion < 2) {
+                            const libStore = tx.objectStore('libraries');
+                            libStore.put({
+                                id: FALLBACK_DEFAULT_LIBRARY_ID,
+                                name: 'Default',
+                                lowerName: 'default',
+                                isDefault: true,
+                                createdAt: Date.now()
+                            });
+
+                            const songStore = tx.objectStore('songs');
+                            songStore.openCursor().onsuccess = function(evt) {
+                                const cursor = evt.target.result;
+                                if (!cursor) return;
+                                const row = cursor.value;
+                                if (!row.libraryId) {
+                                    row.libraryId = FALLBACK_DEFAULT_LIBRARY_ID;
+                                    cursor.update(row);
+                                }
+                                cursor.continue();
+                            };
+
+                            const setStore = tx.objectStore('setlists');
+                            setStore.openCursor().onsuccess = function(evt) {
+                                const cursor = evt.target.result;
+                                if (!cursor) return;
+                                const row = cursor.value;
+                                if (!row.libraryId) {
+                                    row.libraryId = FALLBACK_DEFAULT_LIBRARY_ID;
+                                    cursor.update(row);
+                                }
+                                cursor.continue();
+                            };
                         }
                     };
                     req.onsuccess = function() { resolve(req.result); };
@@ -263,13 +349,14 @@
                 return (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0');
             }
 
-            async function addSongFallback(filename, originalText) {
+            async function addSongFallback(filename, originalText, libraryId) {
                 const db = await openFallbackDb();
                 const hash = hashText(originalText);
+                const targetLibraryId = libraryId || FALLBACK_DEFAULT_LIBRARY_ID;
                 const existing = await new Promise(function(resolve, reject) {
                     const tx = db.transaction('songs', 'readonly');
-                    const idx = tx.objectStore('songs').index('contentHash');
-                    const req = idx.getAll(hash);
+                    const idx = tx.objectStore('songs').index('libraryContentHash');
+                    const req = idx.getAll([targetLibraryId, hash]);
                     req.onsuccess = function() { resolve(req.result); };
                     req.onerror = function() { reject(req.error); };
                 });
@@ -277,6 +364,7 @@
                 return new Promise(function(resolve, reject) {
                     const tx = db.transaction('songs', 'readwrite');
                     const req = tx.objectStore('songs').add({
+                        libraryId: targetLibraryId,
                         filename: filename,
                         originalText: originalText,
                         contentHash: hash,
@@ -305,15 +393,27 @@
                 });
             }
 
-            async function importLibraryFallback(data) {
-                if (!data || !Array.isArray(data.songs)) {
-                    throw new Error('Invalid library file');
+            async function importLibraryFallback(data, libraryId) {
+                var songs = null;
+                if (Array.isArray(data)) {
+                    songs = data;
+                } else if (data && Array.isArray(data.songs)) {
+                    songs = data.songs;
+                } else if (data && data.bundle && Array.isArray(data.bundle.songs)) {
+                    songs = data.bundle.songs;
                 }
+                if (!songs) {
+                    throw new Error('Invalid bundle file: expected a songs array');
+                }
+
                 let imported = 0;
-                for (let i = 0; i < data.songs.length; i++) {
-                    const entry = data.songs[i];
-                    if (!entry || !entry.filename || !entry.originalText) continue;
-                    const id = await addSongFallback(entry.filename, entry.originalText);
+                for (let i = 0; i < songs.length; i++) {
+                    const entry = songs[i];
+                    if (!entry) continue;
+                    const filename = entry.filename || entry.name || 'Imported Song.chopro';
+                    const originalText = entry.originalText || entry.text || null;
+                    if (!originalText) continue;
+                    const id = await addSongFallback(filename, originalText, libraryId);
                     if (entry.state) {
                         await saveSongStateFallback(id, entry.state);
                     }
@@ -341,6 +441,7 @@
                     const tx = db.transaction('setlists', 'readwrite');
                     tx.objectStore('setlists').add({
                         name: data.name || 'Imported Set',
+                        libraryId: FALLBACK_DEFAULT_LIBRARY_ID,
                         songIds: songIds,
                         currentIndex: 0,
                         createdAt: Date.now()
@@ -398,14 +499,23 @@
                 const libUrl = localStorage.getItem('stagechord_pending_import');
                 if (!libUrl) return;
                 localStorage.removeItem('stagechord_pending_import');
+                const rawLibraryId = localStorage.getItem('stagechord_pending_import_library_id');
+                let targetLibraryId = FALLBACK_DEFAULT_LIBRARY_ID;
+                if (rawLibraryId) {
+                    localStorage.removeItem('stagechord_pending_import_library_id');
+                    const parsedLibraryId = Number.parseInt(rawLibraryId, 10);
+                    if (Number.isFinite(parsedLibraryId) && parsedLibraryId > 0) {
+                        targetLibraryId = parsedLibraryId;
+                    }
+                }
                 try {
                     const resp = await fetch(libUrl);
-                    if (!resp.ok) throw new Error('Could not fetch library file');
+                    if (!resp.ok) throw new Error('Could not fetch bundle file');
                     const data = await resp.json();
-                    const count = await importLibraryFallback(data);
+                    const count = await importLibraryFallback(data, targetLibraryId);
                     alert('Imported ' + count + ' song(s) from Songs & Help.');
                 } catch (e) {
-                    alert('Failed to import Songs & Help library: ' + (e && e.message ? e.message : e));
+                    alert('Failed to import Songs & Help bundle: ' + (e && e.message ? e.message : e));
                 }
             }
 
@@ -438,7 +548,9 @@
                 'menu-save-set', 'ios-menu-save-set',
                 'menu-share-set-link', 'ios-menu-share-set-link',
                 'menu-share-set-file', 'ios-menu-share-set-file',
-                'menu-manage-library', 'ios-menu-manage-library',
+                'menu-switch-library', 'ios-menu-switch-library',
+                'menu-manage-libraries', 'ios-menu-manage-libraries',
+                'menu-delete-songs', 'ios-menu-delete-songs',
                 'menu-export-library', 'ios-menu-export-library',
                 'menu-check-update', 'ios-menu-check-update'
             ];
@@ -506,9 +618,11 @@
                 });
             });
 
-            if (!appReady()) {
-                importPendingLibraryFallback();
-            }
+            window.addEventListener('load', function() {
+                if (!appReady()) {
+                    importPendingLibraryFallback();
+                }
+            });
         })();
     </script>
 </body>

@@ -5,7 +5,8 @@ import {
     getSongState, saveSongState,
     saveSetlist, getSetlist, getAllSetlists, deleteSetlist,
     exportLibrary, importLibrary,
-    exportSetlist, importSetlist
+    exportSetlist, importSetlist,
+    getDefaultLibrary, getAllLibraries, getLibrary, addLibrary, renameLibrary, deleteLibrary
 } from './db.js?v=20260415T2';
 
 // Signal to non-module fallback scripts that the app module loaded successfully.
@@ -38,12 +39,15 @@ const keyAccidentals = {
 let songs = [];
 let currentIndex = -1;
 let currentSetlistId = null; // ID of loaded setlist (null = unsaved)
+let currentLibraryId = null; // ID of active library
+let libraryPerSetlist = {}; // Map of setlistId -> libraryId, for restoring on switch
 let autoScrollActive = false;
 let chordEditMode = false;
 let chordPopupOutsideClickHandler = null;
 let deferredInstallPrompt = null;
 
 const SESSION_KEY = 'stagechord_session';
+const ACTIVE_LIBRARY_KEY = 'stagechord_active_library';
 
 function clearSet() {
     songs = [];
@@ -65,15 +69,22 @@ function clearSet() {
     if (autoScrollActive) stopAutoScroll();
 }
 
-// Save lightweight reference to localStorage (just song IDs + position)
+// Save lightweight reference to localStorage (just song IDs + position + library)
 function saveSessionRef() {
     const data = {
         songIds: songs.map(s => s.songId),
         currentIndex,
-        currentSetlistId
+        currentSetlistId,
+        currentLibraryId,
+        libraryPerSetlist: Object.assign({}, libraryPerSetlist)
     };
     try {
         localStorage.setItem(SESSION_KEY, JSON.stringify(data));
+        if (currentLibraryId) {
+            localStorage.setItem(ACTIVE_LIBRARY_KEY, String(currentLibraryId));
+        } else {
+            localStorage.removeItem(ACTIVE_LIBRARY_KEY);
+        }
     } catch (_) {}
 }
 
@@ -91,9 +102,52 @@ async function saveSongStateToDB(song) {
     });
 }
 
+async function ensureCurrentLibraryContext() {
+    if (currentLibraryId) return currentLibraryId;
+
+    let sessionData = null;
+    const activeLibraryRaw = localStorage.getItem(ACTIVE_LIBRARY_KEY);
+    if (activeLibraryRaw) {
+        const activeLibraryId = Number.parseInt(activeLibraryRaw, 10);
+        if (Number.isFinite(activeLibraryId) && activeLibraryId > 0) {
+            const lib = await getLibrary(activeLibraryId);
+            if (lib) {
+                currentLibraryId = activeLibraryId;
+            }
+        }
+    }
+
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (raw) {
+        try {
+            sessionData = JSON.parse(raw);
+        } catch (_) {}
+    }
+
+    if (!currentLibraryId && sessionData && sessionData.currentLibraryId) {
+        const lib = await getLibrary(sessionData.currentLibraryId);
+        if (lib) {
+            currentLibraryId = sessionData.currentLibraryId;
+        }
+    }
+
+    if (!currentLibraryId) {
+        const defLib = await getDefaultLibrary();
+        currentLibraryId = defLib ? defLib.id : 1;
+    }
+
+    if (sessionData && sessionData.libraryPerSetlist && Object.keys(libraryPerSetlist).length === 0) {
+        libraryPerSetlist = Object.assign({}, sessionData.libraryPerSetlist);
+    }
+
+    return currentLibraryId;
+}
+
 // Restore session from localStorage refs + IndexedDB data
 async function restoreSession() {
     try {
+        await ensureCurrentLibraryContext();
+
         const raw = localStorage.getItem(SESSION_KEY);
         if (!raw) return false;
         const data = JSON.parse(raw);
@@ -102,7 +156,7 @@ async function restoreSession() {
         const loaded = [];
         for (const id of data.songIds) {
             const songRecord = await getSong(id);
-            if (!songRecord) continue;
+            if (!songRecord || songRecord.libraryId !== currentLibraryId) continue;
             const state = await getSongState(id) || {};
             loaded.push({
                 songId: id,
@@ -120,6 +174,12 @@ async function restoreSession() {
         currentIndex = typeof data.currentIndex === 'number' ? data.currentIndex : 0;
         if (currentIndex < 0 || currentIndex >= songs.length) currentIndex = 0;
         currentSetlistId = data.currentSetlistId || null;
+        if (currentSetlistId) {
+            const set = await getSetlist(currentSetlistId);
+            if (!set || set.libraryId !== currentLibraryId) {
+                currentSetlistId = null;
+            }
+        }
         return true;
     } catch (_) {
         return false;
@@ -240,7 +300,6 @@ const importSetInput = document.getElementById('import-set-input');
 const fontDecreaseBtn = document.getElementById('font-decrease-btn');
 const fontIncreaseBtn = document.getElementById('font-increase-btn');
 const addSongsToSetBtn = document.getElementById('menu-add-songs-to-set');
-const manageLibraryBtn = document.getElementById('menu-manage-library');
 const checkUpdateBtn = document.getElementById('menu-check-update');
 
 if (fontDecreaseBtn) fontDecreaseBtn.classList.add('annotate-btn');
@@ -372,8 +431,22 @@ if (addSongsToSetBtn) {
         openLibraryBrowser('set');
     });
 }
-if (manageLibraryBtn) {
-    manageLibraryBtn.addEventListener('click', () => {
+if (document.getElementById('menu-switch-library')) {
+    document.getElementById('menu-switch-library').addEventListener('click', async () => {
+        if (await promptSaveCurrentSet()) {
+            closeMenu();
+            openSwitchLibraryModal();
+        }
+    });
+}
+if (document.getElementById('menu-manage-libraries')) {
+    document.getElementById('menu-manage-libraries').addEventListener('click', () => {
+        closeMenu();
+        openManageLibrariesModal();
+    });
+}
+if (document.getElementById('menu-delete-songs')) {
+    document.getElementById('menu-delete-songs').addEventListener('click', () => {
         closeMenu();
         openLibraryBrowser('manage');
     });
@@ -436,13 +509,13 @@ applyFontSize(songFontSize);
 
 document.getElementById('menu-export-library').addEventListener('click', async () => {
     closeMenu();
-    const data = await exportLibrary();
-    downloadJSON(data, 'stagechord-library.json');
+    const data = await exportLibrary(currentLibraryId);
+    downloadJSON(data, 'stagechord-bundle.json');
 });
 
 document.getElementById('menu-import-library').addEventListener('click', () => {
     closeMenu();
-    importLibraryInput.click();
+    document.getElementById('import-library-input').click();
 });
 
 // PWA install prompt - init app appearance
@@ -528,8 +601,10 @@ if (needsIOSFallback) {
         'ios-menu-new-set': () => { closeMenu(); clearSet(); },
         'ios-menu-add-songs': () => { fileInput.click(); closeMenu(); },
         'ios-menu-add-songs-to-set': () => { closeMenu(); openLibraryBrowser('set'); },
-        'ios-menu-manage-library': () => { closeMenu(); openLibraryBrowser('manage'); },
-        'ios-menu-export-library': async () => { closeMenu(); const data = await exportLibrary(); downloadJSON(data, 'stagechord-library.json'); },
+        'ios-menu-switch-library': async () => { if (await promptSaveCurrentSet()) { closeMenu(); openSwitchLibraryModal(); } },
+        'ios-menu-manage-libraries': () => { closeMenu(); openManageLibrariesModal(); },
+        'ios-menu-delete-songs': () => { closeMenu(); openLibraryBrowser('manage'); },
+        'ios-menu-export-library': async () => { closeMenu(); const data = await exportLibrary(currentLibraryId); downloadJSON(data, 'stagechord-bundle.json'); },
         'ios-menu-import-library': () => { closeMenu(); importLibraryInput.click(); },
         'ios-menu-install-app': async () => { 
             closeMenu();
@@ -591,10 +666,10 @@ importLibraryInput.addEventListener('change', async () => {
     const file = importLibraryInput.files[0];
     if (!file) return;
 
-    const existingSongs = await getAllSongs();
+    const existingSongs = await getAllSongs(currentLibraryId);
     if (existingSongs.length > 0) {
         const choice = prompt(
-            `You have ${existingSongs.length} song(s) in your library.\n\n` +
+            `You have ${existingSongs.length} song(s) in this library.\n\n` +
             'Type one of:\n' +
             '  ADD — add imported songs alongside existing\n' +
             '  REPLACE — clear library and replace with import\n' +
@@ -606,8 +681,8 @@ importLibraryInput.addEventListener('change', async () => {
         const c = choice.trim().toUpperCase();
         if (c === 'CANCEL') { importLibraryInput.value = ''; return; }
         if (c === 'EXPORT') {
-            const data = await exportLibrary();
-            downloadJSON(data, 'stagechord-library-backup.json');
+            const data = await exportLibrary(currentLibraryId);
+            downloadJSON(data, 'stagechord-bundle-backup.json');
             // Continue with ADD after exporting
         }
         if (c === 'REPLACE') {
@@ -627,10 +702,10 @@ importLibraryInput.addEventListener('change', async () => {
     try {
         const text = await file.text();
         const data = JSON.parse(text);
-        const result = await importLibrary(data);
+        const result = await importLibrary(data, currentLibraryId);
         alert(`Imported ${result.imported} song(s), ${result.skipped} skipped.`);
     } catch (e) {
-        alert('Failed to import library: ' + e.message);
+        alert('Failed to import bundle: ' + e.message);
     }
     importLibraryInput.value = '';
 });
@@ -639,9 +714,10 @@ importSetInput.addEventListener('change', async () => {
     const file = importSetInput.files[0];
     if (!file) return;
     try {
+        const libraryId = await ensureCurrentLibraryContext();
         const text = await file.text();
         const data = JSON.parse(text);
-        const setlist = await importSetlist(data);
+        const setlist = await importSetlist(data, libraryId);
         await loadSetlistIntoView(setlist.id);
         alert(`Imported set "${setlist.name}" with ${setlist.songIds.length} song(s).`);
     } catch (e) {
@@ -653,6 +729,10 @@ importSetInput.addEventListener('change', async () => {
 // ── Import setlist from URL hash ─────────────────────
 async function importFromUrlHash() {
     const hash = location.hash;
+    let pendingLibraryIdRaw = localStorage.getItem('stagechord_pending_import_library_id');
+    if (pendingLibraryIdRaw) {
+        localStorage.removeItem('stagechord_pending_import_library_id');
+    }
 
     // Handle song library import from Songs & Help page (localStorage or hash fallback)
     let libUrl = localStorage.getItem('stagechord_pending_import');
@@ -664,14 +744,31 @@ async function importFromUrlHash() {
     }
     if (libUrl) {
         try {
+            // Prefer the library id written by help.html immediately before redirect.
+            // Trust it directly without a DB round-trip so early-load timing issues
+            // can't cause a silent fallback to Default.
+            let libraryId = null;
+            if (pendingLibraryIdRaw) {
+                const candidateId = Number.parseInt(pendingLibraryIdRaw, 10);
+                if (Number.isFinite(candidateId) && candidateId > 0) {
+                    libraryId = candidateId;
+                    currentLibraryId = candidateId;
+                }
+            }
+            if (!libraryId) {
+                libraryId = await ensureCurrentLibraryContext();
+            }
             const resp = await fetch(libUrl);
-            if (!resp.ok) throw new Error('Could not fetch library file');
+            if (!resp.ok) throw new Error('Could not fetch bundle file');
             const data = await resp.json();
-            const result = await importLibrary(data);
-            alert(`Imported ${result.imported} song(s), ${result.skipped} skipped.`);
+            const result = await importLibrary(data, libraryId);
+            const lib = await getLibrary(libraryId);
+            const libName = lib ? lib.name : 'Default';
+            saveSessionRef();
+            alert(`Imported ${result.imported} song(s) into "${libName}", ${result.skipped} skipped.`);
             return false; // still restore session normally
         } catch (e) {
-            alert('Failed to import song library: ' + e.message);
+            alert('Failed to import bundle: ' + e.message);
             return false;
         }
     }
@@ -680,9 +777,10 @@ async function importFromUrlHash() {
     const b64url = hash.slice('#setlist='.length);
     if (!b64url) return false;
     try {
+        const libraryId = await ensureCurrentLibraryContext();
         const json = await decompressFromBase64url(b64url);
         const data = JSON.parse(json);
-        const setlist = await importSetlist(data);
+        const setlist = await importSetlist(data, libraryId);
         await loadSetlistIntoView(setlist.id);
         // Clean the hash so a reload doesn't re-import
         history.replaceState(null, '', location.pathname + location.search);
@@ -704,6 +802,12 @@ importFromUrlHash().then(imported => {
     }
     return restoreSession();
 }).then(async (restored) => {
+    // Always flush the resolved currentLibraryId back to localStorage so that
+    // help.html (and any other page) can read the correct library from
+    // stagechord_session without needing the user to have switched libraries.
+    await ensureCurrentLibraryContext();
+    saveSessionRef();
+
     if (restored) {
         populateSelect();
         fileSelect.selectedIndex = currentIndex;
@@ -712,13 +816,14 @@ importFromUrlHash().then(imported => {
     }
     // If running as an installed PWA with an empty library, let user know
     if (isStandalone) {
-        const allSongs = await getAllSongs();
+        const libraryId = await ensureCurrentLibraryContext();
+        const allSongs = await getAllSongs(libraryId);
         if (allSongs.length === 0) {
             alert(
                 'Your song library is empty.\n\n'
                 + 'If you previously used StageChord in a browser, you can transfer your library:\n\n'
-                + '1. In the browser: Menu → Export Library\n'
-                + '2. In this app: Menu → Import Library'
+                + '1. In the browser: Menu → Export Bundle\n'
+                + '2. In this app: Menu → Import Bundle'
             );
         }
     }
@@ -786,7 +891,7 @@ function handleFiles() {
         const valid = results.filter(Boolean);
         if (valid.length === 0) return;
         for (const { name, text } of valid) {
-            const songId = await addSong(name, text);
+            const songId = await addSong(name, text, currentLibraryId);
             // Only add to set if not already in set
             if (!songs.some(s => s.songId === songId)) {
                 const state = await getSongState(songId) || {};
@@ -1870,6 +1975,227 @@ function downloadJSON(data, filename) {
     URL.revokeObjectURL(url);
 }
 
+// ── Manage Libraries Modal ──────────────────────────
+
+const manageLibrariesModal = document.getElementById('manage-libraries-modal');
+const manageLibrariesModalClose = document.getElementById('manage-libraries-modal-close');
+const manageLibrariesModalOverlay = document.getElementById('manage-libraries-modal-overlay');
+const manageLibrariesNewName = document.getElementById('manage-libraries-new-name');
+const manageLibrariesAddBtn = document.getElementById('manage-libraries-add');
+const manageLibrariesList = document.getElementById('manage-libraries-list');
+
+function closeManageLibrariesModal() {
+    manageLibrariesModal.classList.add('hidden');
+}
+
+manageLibrariesModalClose.addEventListener('click', closeManageLibrariesModal);
+manageLibrariesModalOverlay.addEventListener('click', closeManageLibrariesModal);
+
+async function openManageLibrariesModal() {
+    manageLibrariesList.innerHTML = '';
+    manageLibrariesNewName.value = '';
+    const libs = await getAllLibraries();
+    
+    for (const lib of libs) {
+        const item = document.createElement('div');
+        item.className = 'library-item';
+        item.style.display = 'flex';
+        item.style.alignItems = 'center';
+        item.style.justifyContent = 'space-between';
+        item.style.padding = '0.5rem 0.2rem';
+        item.style.borderBottom = '1px solid #f0f0f0';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = lib.name;
+        nameSpan.style.flex = '1';
+        nameSpan.style.fontSize = '0.95rem';
+
+        const btnWrap = document.createElement('div');
+        btnWrap.className = 'library-item-buttons';
+        btnWrap.style.display = 'flex';
+        btnWrap.style.gap = '0.25rem';
+        btnWrap.style.flexShrink = '0';
+
+        // Rename button (not for Default library)
+        if (!lib.isDefault) {
+            const renameBtn = document.createElement('button');
+            renameBtn.textContent = '✎';
+            renameBtn.title = 'Rename library';
+            renameBtn.style.background = 'none';
+            renameBtn.style.border = 'none';
+            renameBtn.style.color = '#2f7d6c';
+            renameBtn.style.cursor = 'pointer';
+            renameBtn.style.fontSize = '0.9rem';
+            renameBtn.style.padding = '0.2rem 0.4rem';
+            renameBtn.addEventListener('click', async () => {
+                const newName = prompt(`Rename library "${lib.name}" to:`, lib.name);
+                if (newName && newName.trim()) {
+                    try {
+                        await renameLibrary(lib.id, newName);
+                        openManageLibrariesModal();
+                    } catch (e) {
+                        alert('Error renaming library: ' + e.message);
+                    }
+                }
+            });
+            btnWrap.appendChild(renameBtn);
+        }
+
+        // Delete button (not for Default library)
+        if (!lib.isDefault) {
+            const delBtn = document.createElement('button');
+            delBtn.textContent = '✕';
+            delBtn.title = 'Delete library';
+            delBtn.style.background = 'none';
+            delBtn.style.border = 'none';
+            delBtn.style.color = '#c00';
+            delBtn.style.cursor = 'pointer';
+            delBtn.style.fontSize = '0.9rem';
+            delBtn.style.padding = '0.2rem 0.4rem';
+            delBtn.addEventListener('click', async () => {
+                if (!confirm(`Delete library "${lib.name}"? Songs and sets will be moved to Default.`)) return;
+                try {
+                    await deleteLibrary(lib.id);
+                    if (currentLibraryId === lib.id) {
+                        const defLib = await getDefaultLibrary();
+                        currentLibraryId = defLib.id;
+                        clearSet();
+                        saveSessionRef();
+                    }
+                    openManageLibrariesModal();
+                } catch (e) {
+                    alert('Error deleting library: ' + e.message);
+                }
+            });
+            btnWrap.appendChild(delBtn);
+        }
+
+        item.appendChild(nameSpan);
+        item.appendChild(btnWrap);
+        manageLibrariesList.appendChild(item);
+    }
+
+    manageLibrariesModal.classList.remove('hidden');
+}
+
+manageLibrariesAddBtn.addEventListener('click', async () => {
+    const name = manageLibrariesNewName.value.trim();
+    if (!name) {
+        alert('Please enter a library name');
+        return;
+    }
+    if (name.length > 17) {
+        alert('Library name must be 17 characters or less');
+        return;
+    }
+    try {
+        await addLibrary(name);
+        openManageLibrariesModal();
+    } catch (e) {
+        alert('Error creating library: ' + e.message);
+    }
+});
+
+// ── Switch Library Modal ────────────────────────────
+
+const switchLibraryModal = document.getElementById('switch-library-modal');
+const switchLibraryModalClose = document.getElementById('switch-library-modal-close');
+const switchLibraryModalOverlay = document.getElementById('switch-library-modal-overlay');
+const switchLibraryList = document.getElementById('switch-library-list');
+
+function closeSwitchLibraryModal() {
+    switchLibraryModal.classList.add('hidden');
+}
+
+switchLibraryModalClose.addEventListener('click', closeSwitchLibraryModal);
+switchLibraryModalOverlay.addEventListener('click', closeSwitchLibraryModal);
+
+async function openSwitchLibraryModal() {
+    switchLibraryList.innerHTML = '';
+    const libs = await getAllLibraries();
+    
+    for (const lib of libs) {
+        const item = document.createElement('div');
+        item.className = 'library-item';
+        item.style.padding = '0.6rem 0.5rem';
+        item.style.borderBottom = '1px solid #f0f0f0';
+        item.style.cursor = 'pointer';
+        item.style.display = 'flex';
+        item.style.alignItems = 'center';
+        item.style.justifyContent = 'space-between';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = lib.name;
+        nameSpan.style.fontSize = '0.95rem';
+        nameSpan.style.flex = '1';
+
+        if (currentLibraryId === lib.id) {
+            const checkmark = document.createElement('span');
+            checkmark.textContent = '✓';
+            checkmark.style.color = '#2f7d6c';
+            checkmark.style.fontWeight = 'bold';
+            item.appendChild(checkmark);
+        }
+
+        item.appendChild(nameSpan);
+        item.addEventListener('click', async () => {
+            if (currentLibraryId === lib.id) {
+                closeSwitchLibraryModal();
+                return;
+            }
+
+            // Save the last set used with the old library if applicable
+            if (currentSetlistId && currentLibraryId) {
+                libraryPerSetlist[currentSetlistId] = currentLibraryId;
+            }
+
+            currentLibraryId = lib.id;
+            
+            // Try to restore the last used set for this library
+            currentSetlistId = null;
+            for (const [setId, libId] of Object.entries(libraryPerSetlist)) {
+                if (libId === lib.id) {
+                    const set = await getSetlist(Number(setId));
+                    if (set && set.libraryId === lib.id) {
+                        currentSetlistId = Number(setId);
+                        break;
+                    }
+                }
+            }
+
+            clearSet();
+            saveSessionRef();
+
+            // Optionally restore a set for the new library
+            if (currentSetlistId) {
+                await loadSetlistIntoView(currentSetlistId);
+            }
+
+            populateSelect();
+            renderCurrent();
+            updateNav();
+            closeSwitchLibraryModal();
+        });
+
+        item.style.cursor = 'pointer';
+        if (currentLibraryId === lib.id) {
+            item.style.backgroundColor = '#f0f0f0';
+        }
+        item.addEventListener('mouseenter', () => {
+            item.style.backgroundColor = '#f5f5f5';
+        });
+        item.addEventListener('mouseleave', () => {
+            if (currentLibraryId !== lib.id) {
+                item.style.backgroundColor = '';
+            }
+        });
+
+        switchLibraryList.appendChild(item);
+    }
+
+    switchLibraryModal.classList.remove('hidden');
+}
+
 // ── Library Browser Modal ────────────────────────────
 
 const libraryModal = document.getElementById('library-modal');
@@ -1889,7 +2215,7 @@ libraryModalOverlay.addEventListener('click', closeLibraryModal);
 
 async function openLibraryBrowser(mode = 'set') {
     const isManageMode = mode === 'manage';
-    const allSongs = await getAllSongs();
+    const allSongs = await getAllSongs(currentLibraryId);
     allSongs.sort((a, b) => {
         const titleA = parseChordPro(a.originalText).metadata.title || a.filename.replace(/\.[^.]+$/, '');
         const titleB = parseChordPro(b.originalText).metadata.title || b.filename.replace(/\.[^.]+$/, '');
@@ -1898,14 +2224,17 @@ async function openLibraryBrowser(mode = 'set') {
     librarySongList.innerHTML = '';
     libraryModal.dataset.mode = mode;
     if (libraryModalTitle) {
-        libraryModalTitle.textContent = isManageMode ? 'Manage Library' : 'Add Songs to Set';
+        const libName = currentLibraryId ? (await getLibrary(currentLibraryId))?.name : 'Unknown';
+        libraryModalTitle.textContent = isManageMode 
+            ? `Manage Library (${libName})` 
+            : 'Add Songs to Set';
     }
     libraryModalActions.style.display = isManageMode ? 'none' : 'block';
 
     if (allSongs.length === 0) {
         const emptyMessage = isManageMode
-            ? 'No songs in library yet. Use "Add Songs to Library" to import ChordPro files.'
-            : 'No songs in library yet. Use "Add Songs to Library" to import ChordPro files.';
+            ? 'No songs in this library yet. Use "Add Songs to Library" to import ChordPro files.'
+            : 'No songs in this library yet. Use "Add Songs to Library" to import ChordPro files.';
         librarySongList.innerHTML = `<div class="empty-message">${emptyMessage}</div>`;
         libraryModal.classList.remove('hidden');
         return;
@@ -2030,7 +2359,8 @@ loadsetModalClose.addEventListener('click', closeLoadSetModal);
 loadsetModalOverlay.addEventListener('click', closeLoadSetModal);
 
 async function openLoadSetModal() {
-    const setlists = await getAllSetlists();
+    const libraryId = await ensureCurrentLibraryContext();
+    const setlists = await getAllSetlists(libraryId);
     loadsetList.innerHTML = '';
 
     if (setlists.length === 0) {
@@ -2080,11 +2410,12 @@ async function openLoadSetModal() {
 async function loadSetlistIntoView(setlistId) {
     const setlist = await getSetlist(setlistId);
     if (!setlist) return;
+    if (setlist.libraryId !== currentLibraryId) return;
 
     songs = [];
     for (const songId of setlist.songIds) {
         const songRecord = await getSong(songId);
-        if (!songRecord) continue;
+        if (!songRecord || songRecord.libraryId !== currentLibraryId) continue;
         const state = await getSongState(songId) || {};
         songs.push({
             songId,
@@ -2146,10 +2477,12 @@ savesetConfirm.addEventListener('click', async () => {
         alert('Please enter a set name.');
         return;
     }
+    const libraryId = await ensureCurrentLibraryContext();
     const setlist = {
         name,
         songIds: songs.map(s => s.songId),
         currentIndex,
+        libraryId,
         createdAt: Date.now()
     };
     if (currentSetlistId) {
@@ -2171,11 +2504,13 @@ async function buildSetlistExportData() {
         alert('No songs in current set to share.');
         return null;
     }
+    const libraryId = await ensureCurrentLibraryContext();
     const songIds = songs.map(s => s.songId);
     const tempSetlist = {
         name: 'Shared Set',
         songIds,
         currentIndex,
+        libraryId,
         createdAt: Date.now()
     };
     if (currentSetlistId) {
