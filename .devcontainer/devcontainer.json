@@ -1,0 +1,25 @@
+{
+  "name": "StageChord",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20",
+  "postCreateCommand": "npm install",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "github.copilot",
+        "github.copilot-chat",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ],
+      "settings": {
+        "editor.formatOnSave": true
+      }
+    }
+  },
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": {
+      "label": "StageChord Dev Server",
+      "onAutoForward": "notify"
+    }
+  }
+}
