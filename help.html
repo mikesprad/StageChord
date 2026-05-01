@@ -163,6 +163,52 @@
         .toc ul { margin: 0.3rem 0 0 1.2rem; }
         .toc li { margin: 0.15rem 0; font-size: 0.92rem; }
 
+        .link-builder {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 0.9rem;
+            margin-top: 0.8rem;
+        }
+        .link-builder label {
+            display: block;
+            font-weight: 600;
+            margin: 0.5rem 0 0.25rem;
+            color: #2f7d6c;
+        }
+        .link-builder input[type="url"],
+        .link-builder input[type="text"] {
+            width: 100%;
+            padding: 0.5rem 0.6rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.92rem;
+        }
+        .link-builder-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-top: 0.7rem;
+        }
+        .link-builder-actions button {
+            border: none;
+            border-radius: 4px;
+            padding: 0.45rem 0.9rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .btn-generate {
+            background: #2f7d6c;
+            color: #fff;
+        }
+        .btn-generate:hover { background: #256b5c; }
+        .btn-copy {
+            background: #fff;
+            color: #2f7d6c;
+            border: 1px solid #2f7d6c !important;
+        }
+        .btn-copy:hover { background: #e8f0ee; }
+
         kbd {
             background: #eee;
             border: 1px solid #ccc;
@@ -226,6 +272,7 @@
                 <li><a href="#guide-stave">Musical Stave (Notation)</a></li>
                 <li><a href="#guide-comments">Comments &amp; Annotations</a></li>
                 <li><a href="#guide-sets">Sets (Setlists)</a></li>
+                <li><a href="#guide-open-set-link">Open Set from Link</a></li>
                 <li><a href="#guide-library">Libraries</a></li>
                 <li><a href="#guide-import-export">Import Bundles &amp; Export</a></li>
                 <li><a href="#guide-install">Installing as an App</a></li>
@@ -328,6 +375,31 @@
             <p>Your current set (song order and position) is automatically remembered between sessions, even without saving.</p>
         </div>
 
+        <div class="section" id="guide-open-set-link">
+            <h3>Open Set from Link</h3>
+            <p>You can share a full set using a hosted set file and a simple StageChord import link.</p>
+            <ol>
+                <li>In StageChord, open the set you want to share and use <strong>Share as File</strong> to export a <code>.stagechord.json</code> file.</li>
+                <li>Upload that file to a public <strong>https</strong> URL (for example your website, cloud storage direct file URL, or GitHub Pages).</li>
+                <li>Generate an import URL in the box below. Share that import URL in Linktree, bookmarks, or messages.</li>
+                <li>When recipients open the link, StageChord imports the set into their current library and creates a new setlist.</li>
+            </ol>
+            <p><strong>Tip:</strong> For regular sharing of sets, keep one stable hosted file URL for each recurring event. Replace the file contents as often as needed without changing the URL.</p>
+
+            <div class="link-builder">
+                <label for="setfile-url-input">Hosted set file URL (https only)</label>
+                <input id="setfile-url-input" type="url" placeholder="https://example.org/sets/sunday.stagechord.json" spellcheck="false" autocapitalize="none" autocomplete="off">
+
+                <div class="link-builder-actions">
+                    <button type="button" class="btn-generate" onclick="generateSetImportUrl()">Generate import URL</button>
+                    <button type="button" class="btn-copy" onclick="copySetImportUrl()">Copy import URL</button>
+                </div>
+
+                <label for="set-import-url-output">StageChord import URL</label>
+                <input id="set-import-url-output" type="text" readonly placeholder="Generated URL appears here">
+            </div>
+        </div>
+
 
 
 
@@ -416,6 +488,55 @@
                     document.close();
                 })
                 .catch(() => alert('Could not check for updates. Are you online?'));
+        }
+
+        function generateSetImportUrl() {
+            var input = document.getElementById('setfile-url-input');
+            var output = document.getElementById('set-import-url-output');
+            if (!input || !output) return;
+
+            var raw = String(input.value || '').trim();
+            if (!raw) {
+                alert('Paste a hosted set file URL first.');
+                return;
+            }
+
+            var parsed;
+            try {
+                parsed = new URL(raw);
+            } catch (_) {
+                alert('Please enter a valid URL.');
+                return;
+            }
+
+            if (parsed.protocol !== 'https:') {
+                alert('Set file URL must use https.');
+                return;
+            }
+
+            var appUrl = new URL('index.html', window.location.href);
+            appUrl.searchParams.set('setUrl', parsed.toString());
+            output.value = appUrl.toString();
+            output.focus();
+            output.select();
+        }
+
+        async function copySetImportUrl() {
+            var output = document.getElementById('set-import-url-output');
+            if (!output) return;
+            if (!output.value) {
+                alert('Generate the import URL first.');
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(output.value);
+                alert('Import URL copied to clipboard.');
+            } catch (_) {
+                output.focus();
+                output.select();
+                alert('Copy failed. The URL is selected so you can copy it manually.');
+            }
         }
     </script>
 </body>

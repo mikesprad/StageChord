@@ -710,12 +710,38 @@ importSetInput.addEventListener('change', async () => {
         const data = JSON.parse(text);
         const setlist = await importSetlist(data, libraryId);
         await loadSetlistIntoView(setlist.id);
-        alert(`Imported set "${setlist.name}" with ${setlist.songIds.length} song(s).`);
+        const skipped = Number.isFinite(setlist.skipped) ? setlist.skipped : 0;
+        alert(`Imported set "${setlist.name}" with ${setlist.songIds.length} song(s), ${skipped} skipped.`);
     } catch (e) {
         alert('Failed to import set: ' + e.message);
     }
     importSetInput.value = '';
 });
+
+function clearSetUrlQueryParam() {
+    const url = new URL(location.href);
+    if (!url.searchParams.has('setUrl')) return;
+    url.searchParams.delete('setUrl');
+    const nextSearch = url.searchParams.toString();
+    const nextUrl = `${url.pathname}${nextSearch ? `?${nextSearch}` : ''}${url.hash}`;
+    history.replaceState(null, '', nextUrl);
+}
+
+async function autoSaveDraftSetIfNeeded() {
+    if (songs.length === 0 || currentSetlistId) return null;
+    const libraryId = await ensureCurrentLibraryContext();
+    const draftSet = {
+        name: 'Draft Set',
+        songIds: songs.map((s) => s.songId),
+        currentIndex,
+        libraryId,
+        createdAt: Date.now()
+    };
+    const savedDraft = await saveSetlist(draftSet);
+    currentSetlistId = savedDraft.id;
+    saveSessionRef();
+    return savedDraft.name;
+}
 
 // ── Import setlist from URL hash ─────────────────────
 async function importFromUrlHash() {
@@ -764,6 +790,52 @@ async function importFromUrlHash() {
         }
     }
 
+    const setUrlParam = new URLSearchParams(location.search).get('setUrl');
+    if (setUrlParam) {
+        try {
+            const trimmedSetUrl = String(setUrlParam).trim();
+            if (!trimmedSetUrl) {
+                throw new Error('Missing setUrl value');
+            }
+            const parsedSetUrl = new URL(trimmedSetUrl);
+            if (parsedSetUrl.protocol !== 'https:') {
+                throw new Error('setUrl must use https');
+            }
+
+            // If the user already had an unsaved set open, restore it first so we can
+            // preserve it as a Draft Set before importing from link.
+            if (songs.length === 0) {
+                await restoreSession();
+            }
+            const draftName = await autoSaveDraftSetIfNeeded();
+            const libraryId = await ensureCurrentLibraryContext();
+            const resp = await fetch(parsedSetUrl.toString());
+            if (!resp.ok) throw new Error('Could not fetch set file');
+
+            let data;
+            try {
+                data = await resp.json();
+            } catch (_) {
+                throw new Error('Set file is not valid JSON');
+            }
+
+            const setlist = await importSetlist(data, libraryId);
+            await loadSetlistIntoView(setlist.id);
+            clearSetUrlQueryParam();
+
+            const skipped = Number.isFinite(setlist.skipped) ? setlist.skipped : 0;
+            let message = `Imported set "${setlist.name}" with ${setlist.songIds.length} song(s), ${skipped} skipped.`;
+            if (draftName) {
+                message = `Saved current set as "${draftName}" before import.\n\n${message}`;
+            }
+            alert(message);
+            return true;
+        } catch (e) {
+            alert('Failed to import set from link: ' + e.message);
+            return false;
+        }
+    }
+
     if (!hash.startsWith('#setlist=')) return false;
     const b64url = hash.slice('#setlist='.length);
     if (!b64url) return false;
@@ -775,6 +847,8 @@ async function importFromUrlHash() {
         await loadSetlistIntoView(setlist.id);
         // Clean the hash so a reload doesn't re-import
         history.replaceState(null, '', location.pathname + location.search);
+        const skipped = Number.isFinite(setlist.skipped) ? setlist.skipped : 0;
+        alert(`Imported shared set "${setlist.name}" with ${setlist.songIds.length} song(s), ${skipped} skipped.`);
         return true;
     } catch (e) {
         alert('Failed to import shared set: ' + e.message);
@@ -2461,10 +2535,26 @@ async function buildSetlistExportData() {
         alert('No songs in current set to share.');
         return null;
     }
+
     const libraryId = await ensureCurrentLibraryContext();
+    let preferredName = '';
+    if (currentSetlistId) {
+        const existingSetlist = await getSetlist(currentSetlistId);
+        preferredName = existingSetlist && existingSetlist.name ? String(existingSetlist.name).trim() : '';
+    }
+    if (!preferredName) {
+        const inputName = prompt('Enter a set name for sharing:', 'Shared Set');
+        if (inputName === null) return null;
+        preferredName = String(inputName).trim();
+        if (!preferredName) {
+            alert('Set name is required for sharing.');
+            return null;
+        }
+    }
+
     const songIds = songs.map(s => s.songId);
     const tempSetlist = {
-        name: 'Shared Set',
+        name: preferredName,
         songIds,
         currentIndex,
         libraryId,

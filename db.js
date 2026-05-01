@@ -120,6 +120,30 @@ function validateLibraryName(name) {
     return normalized;
 }
 
+function normalizeSetlistName(name) {
+    return String(name || '').trim().replace(/\s+/g, ' ');
+}
+
+async function getUniqueSetlistName(baseName, libraryId, excludeSetlistId = null) {
+    const cleanBase = normalizeSetlistName(baseName) || 'Imported Set';
+    const setlists = await getAllSetlists(libraryId);
+    const usedNames = new Set(
+        setlists
+            .filter((s) => !excludeSetlistId || s.id !== excludeSetlistId)
+            .map((s) => normalizeSetlistName(s.name).toLowerCase())
+    );
+
+    if (!usedNames.has(cleanBase.toLowerCase())) {
+        return cleanBase;
+    }
+
+    let suffix = 1;
+    while (usedNames.has(`${cleanBase} (${suffix})`.toLowerCase())) {
+        suffix += 1;
+    }
+    return `${cleanBase} (${suffix})`;
+}
+
 export async function getDefaultLibrary() {
     const db = await openDB();
     return new Promise((resolve, reject) => {
@@ -418,6 +442,11 @@ export async function saveSetlist(setlist) {
     if (!setlist.libraryId) {
         setlist.libraryId = await getDefaultLibraryId();
     }
+    const normalizedName = normalizeSetlistName(setlist.name);
+    setlist.name = normalizedName || 'Untitled Set';
+    if (!setlist.id) {
+        setlist.name = await getUniqueSetlistName(setlist.name, setlist.libraryId);
+    }
     return new Promise((resolve, reject) => {
         const tx = db.transaction('setlists', 'readwrite');
         const store = tx.objectStore('setlists');
@@ -551,6 +580,10 @@ export async function importLibrary(data, libraryId = DEFAULT_LIBRARY_ID) {
 export async function exportSetlist(setlistId) {
     const setlist = await getSetlist(setlistId);
     if (!setlist) throw new Error('Setlist not found');
+    const setName = normalizeSetlistName(setlist.name);
+    if (!setName) {
+        throw new Error('Set name is required. Save the set with a name before sharing.');
+    }
 
     const songEntries = [];
     for (const songId of setlist.songIds) {
@@ -575,33 +608,66 @@ export async function exportSetlist(setlistId) {
         version: 2,
         type: 'setlist',
         exportedAt: new Date().toISOString(),
-        name: setlist.name,
+        name: setName,
         songs: songEntries
     };
 }
 
 export async function importSetlist(data, libraryId = DEFAULT_LIBRARY_ID) {
-    if (!data || data.type !== 'setlist' || !Array.isArray(data.songs)) {
+    const setType = data && data.type;
+    if (!data || !Array.isArray(data.songs) || (setType !== 'setlist' && setType !== 'stagechordset')) {
         throw new Error('Invalid setlist file');
     }
+
     const songIds = [];
+    let imported = 0;
+    let skipped = 0;
+
     for (const entry of data.songs) {
-        if (!entry.originalText || !entry.filename) continue;
-        const id = await addSong(entry.filename, entry.originalText, libraryId);
-        if (entry.state) {
-            const existingState = await getSongState(id);
-            if (!existingState || !existingState.updatedAt) {
-                await saveSongState(id, entry.state);
-            }
+        if (!entry || typeof entry !== 'object') {
+            skipped++;
+            continue;
         }
-        songIds.push(id);
+
+        const filename = String(entry.filename || '').trim();
+        const originalText = typeof entry.originalText === 'string' ? entry.originalText : '';
+        if (!filename || !originalText) {
+            skipped++;
+            continue;
+        }
+
+        try {
+            const id = await addSong(filename, originalText, libraryId);
+            if (entry.state && typeof entry.state === 'object') {
+                try {
+                    const existingState = await getSongState(id);
+                    if (!existingState || !existingState.updatedAt) {
+                        await saveSongState(id, entry.state);
+                    }
+                } catch (_) {
+                    // Keep importing other songs if song state cannot be applied.
+                }
+            }
+            songIds.push(id);
+            imported++;
+        } catch (_) {
+            skipped++;
+        }
     }
+
+    if (songIds.length === 0) {
+        throw new Error('No valid songs found in set file');
+    }
+
     const setlist = {
-        name: data.name || 'Imported Set',
+        name: normalizeSetlistName(data.name) || 'Imported Set',
         libraryId,
         songIds,
         currentIndex: 0,
         createdAt: Date.now()
     };
-    return saveSetlist(setlist);
+    const saved = await saveSetlist(setlist);
+    saved.imported = imported;
+    saved.skipped = skipped;
+    return saved;
 }
