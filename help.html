@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StageChord — Songs &amp; Help</title>
+    <title>StageChord; Songs &amp; Help</title>
     <meta name="theme-color" content="#2f7d6c">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -226,7 +226,7 @@
 
     <main>
         <h2 id="welcome">Welcome!</h2>
-        <p>StageChord is a mobile-friendly viewer for songs written in <strong>ChordPro format</strong>. All your songs and settings are stored on your device — nothing is sent to a server, and the app works offline once installed.</p>
+        <p>StageChord is a mobile-friendly viewer for songs written in <strong>ChordPro format</strong>. All your songs and settings are stored on your device; nothing is sent to a server, and the app works offline once installed.</p>
 
         <!-- ============================================ -->
         <!--  SONG BUNDLES                                -->
@@ -266,11 +266,11 @@
                 <li><a href="#guide-adding-songs">Adding Songs</a></li>
                 <li><a href="#guide-song-navigation">Song Navigation &amp; Order</a></li>
                 <li><a href="#guide-transpose">Transposing</a></li>
-                <li><a href="#guide-chord-editing">Editing Chords &amp; Lyrics</a></li>
+                <li><a href="#guide-memos">Memos</a></li>
+                <li><a href="#guide-chord-editing">Editing Chords and Adding Comments</a></li>
                 <li><a href="#guide-auto-scroll">Auto-Scroll</a></li>
                 <li><a href="#guide-tempo">Tempo Flash</a></li>
                 <li><a href="#guide-stave">Musical Stave (Notation)</a></li>
-                <li><a href="#guide-comments">Comments &amp; Annotations</a></li>
                 <li><a href="#guide-sets">Sets (Setlists)</a></li>
                 <li><a href="#guide-open-set-link">Open Set from Link</a></li>
                 <li><a href="#guide-library">Libraries</a></li>
@@ -307,17 +307,30 @@
             <h3>Transposing</h3>
             <p>Each song displays its key (detected from the <code>{key: ...}</code> directive, or inferred from the first chord). Use the <strong>−</strong> and <strong>+</strong> buttons to transpose up or down in semitones.</p>
             <p>The key display shows the transposed key, e.g. <strong>Key: G</strong>. Transpose settings are saved per song and persist across sessions.</p>
-            <p>StageChord uses correct enharmonic spelling for each key — sharp keys show sharps, flat keys show flats.</p>
+            <p>StageChord uses correct enharmonic spelling for each key; sharp keys show sharps, flat keys show flats.</p>
+        </div>
+
+        <!-- Memos -->
+        <div class="section" id="guide-memos">
+            <h3>Memos</h3>
+            <p>Add a song-wide memo for performance reminders, capo positions, arrangement notes, or anything else you want to remember about the song.</p>
+            <ul>
+                <li><strong>Add a memo:</strong> Tap the <strong>+Memo</strong> button. A text box appears; type your memo and tap <strong>Save</strong>.</li>
+                <li><strong>Edit a memo:</strong> Tap the <strong>✎ Memo</strong> button to open the editor again. Make your changes and tap <strong>Save</strong>.</li>
+                <li><strong>Remove a memo:</strong> Tap <strong>✎ Memo</strong>, clear all the text, and tap <strong>Save</strong>.</li>
+            </ul>
+            <p>The memo appears at the top of the song as <strong>Memo:</strong> followed by your text.</p>
         </div>
 
         <!-- Chord Editing -->
         <div class="section" id="guide-chord-editing">
-            <h3>Editing Chords &amp; Lyrics</h3>
+            <h3>Editing Chords and Adding Comments</h3>
             <p>Tap the <strong>✎ Edit</strong> button to enter edit mode.</p>
             <ul>
                 <li><strong>Change a chord:</strong> Tap any chord to open a popup with all chords used in the song. Select a different chord, type a custom chord, or delete it.</li>
                 <li><strong>Add a chord:</strong> Tap any lyric word or space to insert a new chord at that position.</li>
                 <li><strong>Edit key &amp; tempo:</strong> In edit mode, the key and tempo fields become editable text inputs.</li>
+                <li><strong>Add a comment:</strong> Tap a section heading (for example Verse or Chorus) to add or edit a section comment directly under that heading. Tap the comment to edit it again, or clear the text and save to remove it.</li>
                 <li><strong>Reset:</strong> If you've made changes, a <strong>Reset</strong> button appears to revert to the original version.</li>
             </ul>
             <p>Tap <strong>✓ Done</strong> to exit edit mode. All edits are saved automatically.</p>
@@ -333,7 +346,7 @@
         <!-- Tempo Flash -->
         <div class="section" id="guide-tempo">
             <h3>Tempo Flash</h3>
-            <p>If a song has a tempo set (e.g. <code>{tempo: 120}</code>), a <strong>Tempo</strong> button appears next to the key. Tap it to flash the navigation bar in time with the beat — useful for counting in.</p>
+            <p>If a song has a tempo set (e.g. <code>{tempo: 120}</code>), a <strong>Tempo</strong> button appears next to the key. Tap it to flash the navigation bar in time with the beat; useful for counting in.</p>
             <p>Tap again to stop the flash. It also stops automatically when you change songs.</p>
         </div>
 
@@ -344,7 +357,7 @@
             <p>The stave editor lets you:</p>
             <ul>
                 <li>Choose a <strong>time signature</strong> (4/4, or 6/8)</li>
-                <li>Select note <strong>duration</strong> — from semibreve to semiquaver, with dotted and tied options</li>
+                <li>Select note <strong>duration</strong>; from semibreve to semiquaver, with dotted and tied options</li>
                 <li>Set <strong>accidentals</strong> (sharp, flat, natural)</li>
                 <li>Change <strong>octave</strong> (8va up, 8vb down)</li>
                 <li>Add <strong>barlines</strong> and <strong>rests</strong></li>
@@ -353,17 +366,10 @@
             <p>The stave is rendered as standard musical notation and transposes along with the song's chords when you change key.</p>
         </div>
 
-        <!-- Comments -->
-        <div class="section" id="guide-comments">
-            <h3>Comments &amp; Annotations</h3>
-            <p>Tap <strong>+Comment</strong> to add a personal note to a song — for example, performance reminders, capo positions, or arrangement notes.</p>
-            <p>Comments are displayed in a highlighted box above the song. Tap <strong>✎ Comment</strong> to edit or remove an existing comment.</p>
-        </div>
-
         <!-- Sets -->
         <div class="section" id="guide-sets">
             <h3>Sets (Setlists)</h3>
-            <p>A <strong>set</strong> is a collection of songs in a specific order — perfect for gigs or practice sessions.</p>
+            <p>A <strong>set</strong> is a collection of songs in a specific order; perfect for gigs or practice sessions.</p>
             <ul>
                 <li><strong>New Set:</strong> Clears the current set to start fresh.</li>
                 <li><strong>Save Set:</strong> Saves the current set with a name. You can overwrite an existing set or create a new one.</li>
@@ -429,7 +435,7 @@
             </ul>
             <h4 style="margin-top:0.8rem;">Export Bundles</h4>
             <ul>
-                <li><strong>Export Bundle:</strong> In the <strong>Import/Export</strong> menu section, download the current library as a <code>.json</code> bundle — includes songs, transpose settings, staves, and edits. Great for backups.</li>
+                <li><strong>Export Bundle:</strong> In the <strong>Import/Export</strong> menu section, download the current library as a <code>.json</code> bundle; includes songs, transpose settings, staves, and edits. Great for backups.</li>
             </ul>
         </div>
 
@@ -441,7 +447,7 @@
                 <li><strong>Android:</strong> Tap the browser menu (⋮) → "Add to Home screen", or use the <strong>Add as App</strong> option in the ☰ Manage menu.</li>
                 <li><strong>iPhone / iPad:</strong> Tap the Share button (⬆) → "Add to Home Screen".</li>
             </ul>
-            <p>Once installed, the app works fully offline — your songs and settings are stored on your device.</p>
+            <p>Once installed, the app works fully offline; your songs and settings are stored on your device.</p>
         </div>
 
         <hr style="margin: 2rem 0 1rem; border: none; border-top: 1px solid #ddd;">

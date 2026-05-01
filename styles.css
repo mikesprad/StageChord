@@ -686,8 +686,11 @@ body.old-ios-menu #menu-panel {
   padding: 0.5rem 0.75rem;
   margin-bottom: 0.75rem;
   white-space: pre-wrap;
-  font-size: 0.95rem;
+  font-size: calc(var(--song-font-size) * 0.95);
   color: #5a4e00;
+}
+.annotation-text {
+  font-style: italic;
 }
 #annotation-editor {
   margin-bottom: 0.75rem;
@@ -718,6 +721,85 @@ body.old-ios-menu #menu-panel {
   background: #2f7d6c;
   color: #fff;
   border-color: #2f7d6c;
+}
+.flow-comment-box {
+  background: #f2fbf8;
+  border: 1px solid #d8d8d8;
+  border-radius: 6px;
+  padding: 0.45rem 0.7rem;
+  margin: 0.2rem 0 0.45rem;
+  white-space: pre-wrap;
+  font-size: calc(var(--song-font-size) * 0.95);
+  color: #333;
+}
+.flow-comment-text {
+  font-style: italic;
+}
+.section-comment-target {
+  cursor: pointer;
+  border-bottom: 1px dashed #2f7d6c;
+  display: inline-block;
+}
+.section-comment-target:hover {
+  background: #f2fbf8;
+}
+.flow-comment-target {
+  cursor: pointer;
+  border: 1px dashed #2f7d6c;
+}
+.flow-comment-target:hover {
+  background: #f2fbf8;
+}
+#inline-comment-editor-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1300;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+#inline-comment-editor-panel {
+  width: min(560px, 100%);
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.8rem;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+}
+.inline-comment-editor-title {
+  font-weight: 600;
+  margin-bottom: 0.55rem;
+}
+#inline-comment-editor-panel textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #b9b9b9;
+  border-radius: 4px;
+  padding: 0.45rem;
+  font-size: 0.95rem;
+  resize: vertical;
+}
+.inline-comment-editor-buttons {
+  margin-top: 0.5rem;
+  display: flex;
+  gap: 0.5rem;
+}
+.inline-comment-editor-buttons button {
+  border: 1px solid #777;
+  border-radius: 4px;
+  background: #fff;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}
+.inline-comment-editor-buttons button:first-child {
+  background: #2f7d6c;
+  border-color: #2f7d6c;
+  color: #fff;
 }
 @media (max-width: 600px) {
   header {

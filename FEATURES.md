@@ -21,7 +21,12 @@ The full implementation notes are preserved in `IMPLEMENTED_FEATURE_DETAILS.md`.
 - Multi-Library support: separate song/set contexts (e.g. Church, Funk Band) with Switch Library, Manage Libraries, and per-library bundle export/import. Songs and sets are library-scoped. Existing data migrated to Default library on upgrade (IndexedDB v2).
 
 ## Potential Features
-- Option to add a comment anywhere in a song or set.
+- Comment Anywhere (feature request, not yet implemented): allow adding a comment at any position in a song flow (between lines, before/after a section, or next to chord/lyric lines) using the same rendering/behavior as existing comments.
+- UI ideas to explore for Comment Anywhere:
+	- Edit-mode insertion handles: show small "+ comment" controls between lines/sections.
+	- Long-press context action: long-press a line or section and choose "Add comment before" or "Add comment after".
+	- Structure lane: add a lightweight timeline/outline lane where comments can be dropped between section markers.
+	- Keyboard-first shortcut (desktop/tablet): focused line + shortcut opens comment editor at cursor position.
 - Display how far the current key is from the original key.
 - Copy or move songs between libraries in bulk.
 - Export all libraries in one file.

@@ -109,7 +109,7 @@ Pre-load a curated song collection via the Songs & Help page, so users don't sta
 A collection of small UX enhancements:
 
 - **Scroll button label:** Renamed "Auto Scroll" to "Scroll" (and "Stop Scroll" to "Stop") to save nav bar space.
-- **Edit tip:** When Edit mode is active, a small italic hint ("click chord / lyric to edit") appears below the sticky nav bar.
+- **Edit tip:** When Edit mode is active, a small italic hint ("Click chord / lyric to edit; click section headings to add comments") appears below the sticky nav bar.
 - **Tempo flash:** Clicking the tempo indicator (e.g. "Tempo: 120") flashes the sticky nav bar at the song's BPM as a visual metronome. Continues until clicked again or a new song is selected.
 - **Android tempo robustness:** Tempo flash now validates BPM before starting, preventing crashes on older Android browsers.
 - **Check for Update:** Added a "Check for Update" button under Songs & Help that updates the service worker, clears cached app files, and reloads the app without removing IndexedDB data.
@@ -120,7 +120,8 @@ A collection of small UX enhancements:
 - **Font size controls:** Added `Aa-` / `Aa+` controls that scale lyric and chord text together while keeping alignment intact.
 - **Reorder Set:** Renamed the song order panel to Reorder Set and added a remove-song control in the reorder list.
 - **Contact email:** A mailto link (`stagechord@spradbery.com`) is shown at the bottom of Songs & Help (removed from main menu).
-- **Button row:** Comment, Stave, and Edit buttons are on their own line below the key/tempo info for a cleaner layout.
+- **Button row:** Memo, Stave, and Edit buttons are on their own line below the key/tempo info for a cleaner layout.
+- **Memos and section comments:** Added song-wide Memo support and section-scoped inline comments in Edit mode. Tap section headings to add/edit comments directly beneath headings.
 - **Edit mode (key/tempo):** The "Edit" button now also exposes inline Key and Tempo fields. Editing the key respects the current transpose offset. Both use standard ChordPro metadata directives.
 
 ---

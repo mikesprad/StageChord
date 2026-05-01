@@ -48,6 +48,7 @@ let deferredInstallPrompt = null;
 
 const SESSION_KEY = 'stagechord_session';
 const ACTIVE_LIBRARY_KEY = 'stagechord_active_library';
+const INLINE_COMMENT_DIRECTIVE = 'sc-comment';
 
 function clearSet() {
     songs = [];
@@ -1104,6 +1105,151 @@ function splitEditableSegments(text) {
     return text.match(/\S+\s*|\s+/g) || [];
 }
 
+function parseDirectiveLine(rawLine) {
+    const trimmed = String(rawLine || '').trim();
+    const match = trimmed.match(/^\{([^:}]+):\s*(.*?)\}$/);
+    if (!match) return null;
+    return {
+        key: match[1].trim().toLowerCase(),
+        value: match[2]
+    };
+}
+
+function sanitizeInlineCommentText(text) {
+    return String(text || '')
+        .replace(/[{}]/g, '')
+        .replace(/\r?\n+/g, ' / ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function getSectionInlineCommentRange(song, headingRawLineIndex) {
+    const lines = song.text.split(/\r?\n/);
+    if (lines.length === 0) return { lines, indexes: [], firstIndex: -1, firstText: '' };
+
+    const boundedIndex = Math.max(0, Math.min(headingRawLineIndex, lines.length - 1));
+    const indexes = [];
+    for (let i = boundedIndex + 1; i < lines.length; i++) {
+        const directive = parseDirectiveLine(lines[i]);
+        if (!directive || directive.key !== INLINE_COMMENT_DIRECTIVE) break;
+        indexes.push(i);
+    }
+
+    const firstIndex = indexes.length > 0 ? indexes[0] : -1;
+    const firstText = firstIndex >= 0
+        ? (parseDirectiveLine(lines[firstIndex])?.value || '')
+        : '';
+
+    return { lines, indexes, firstIndex, firstText };
+}
+
+function upsertSectionInlineComment(song, headingRawLineIndex, commentText) {
+    const comment = sanitizeInlineCommentText(commentText);
+    if (!comment) return false;
+
+    const info = getSectionInlineCommentRange(song, headingRawLineIndex);
+    const { lines, indexes, firstIndex } = info;
+
+    if (firstIndex >= 0) {
+        lines[firstIndex] = `{${INLINE_COMMENT_DIRECTIVE}: ${comment}}`;
+        // If multiple old comments exist, keep one canonical attached comment.
+        for (let i = indexes.length - 1; i >= 1; i--) {
+            lines.splice(indexes[i], 1);
+        }
+        song.text = lines.join('\n');
+        return true;
+    }
+
+    const boundedIndex = Math.max(0, Math.min(headingRawLineIndex, lines.length - 1));
+    const insertAt = boundedIndex + 1;
+    lines.splice(insertAt, 0, `{${INLINE_COMMENT_DIRECTIVE}: ${comment}}`);
+    song.text = lines.join('\n');
+    return true;
+}
+
+function deleteSectionInlineComment(song, headingRawLineIndex) {
+    const info = getSectionInlineCommentRange(song, headingRawLineIndex);
+    if (info.indexes.length === 0) return false;
+    const lines = info.lines;
+    for (let i = info.indexes.length - 1; i >= 0; i--) {
+        lines.splice(info.indexes[i], 1);
+    }
+    song.text = lines.join('\n');
+    return true;
+}
+
+async function openSectionInlineCommentEditor(song, headingRawLineIndex) {
+    const existing = document.getElementById('inline-comment-editor-overlay');
+    if (existing) existing.remove();
+
+    const info = getSectionInlineCommentRange(song, headingRawLineIndex);
+    const hasExisting = info.firstIndex >= 0;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'inline-comment-editor-overlay';
+
+    const panel = document.createElement('div');
+    panel.id = 'inline-comment-editor-panel';
+
+    const title = document.createElement('div');
+    title.className = 'inline-comment-editor-title';
+    title.textContent = hasExisting
+        ? 'Edit comment below section heading'
+        : 'Add comment below section heading';
+
+    const textarea = document.createElement('textarea');
+    textarea.rows = 4;
+    textarea.placeholder = 'Type section comment...';
+    textarea.value = hasExisting ? info.firstText : '';
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'inline-comment-editor-buttons';
+
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.textContent = 'Save';
+    saveBtn.addEventListener('click', async () => {
+        const nextValue = String(textarea.value || '').trim();
+        if (!nextValue) {
+            if (hasExisting) {
+                deleteSectionInlineComment(song, headingRawLineIndex);
+                overlay.remove();
+                await saveSongStateToDB(song);
+                saveSessionRef();
+                renderCurrent();
+                return;
+            }
+            alert('Please enter a comment.');
+            return;
+        }
+
+        if (!upsertSectionInlineComment(song, headingRawLineIndex, nextValue)) {
+            alert('Please enter a comment.');
+            return;
+        }
+        overlay.remove();
+        await saveSongStateToDB(song);
+        saveSessionRef();
+        renderCurrent();
+    });
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => {
+        overlay.remove();
+    });
+
+    btnRow.appendChild(saveBtn);
+    btnRow.appendChild(cancelBtn);
+    panel.appendChild(title);
+    panel.appendChild(textarea);
+    panel.appendChild(btnRow);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+    textarea.focus();
+}
+
 function detectSectionType(rawLine) {
     const trimmed = rawLine.trim();
     // Lines wrapped in curly brackets are directives, not headings.
@@ -1245,9 +1391,9 @@ function renderCurrent() {
 
     // Annotation button — always shown
     const annotateBtn = document.createElement('button');
-    annotateBtn.textContent = song.annotation ? '✎ Comment' : '+Comment';
+    annotateBtn.textContent = song.annotation ? '✎ Memo' : '+Memo';
     annotateBtn.className = 'annotate-btn';
-    annotateBtn.title = song.annotation ? 'Edit annotation' : 'Add annotation';
+    annotateBtn.title = song.annotation ? 'Edit memo' : 'Add memo';
     annotateBtn.addEventListener('click', () => {
         showAnnotationEditor(song);
     });
@@ -1309,7 +1455,7 @@ function renderCurrent() {
         resetBtn.className = 'annotate-btn reset-btn';
         resetBtn.title = 'Revert all chord edits';
         resetBtn.addEventListener('click', async () => {
-            if (!confirm('Reset all chord edits to original?')) return;
+            if (!confirm('Reset all chord edits to original and remove all Comments?')) return;
             song.text = song.originalText;
             await saveSongStateToDB(song);
             renderCurrent();
@@ -1372,7 +1518,18 @@ function renderCurrent() {
     if (song.annotation) {
         const annoBox = document.createElement('div');
         annoBox.className = 'annotation-box';
-        annoBox.textContent = song.annotation;
+
+        const label = document.createElement('strong');
+        label.className = 'annotation-label';
+        label.textContent = 'Memo:';
+
+        const content = document.createElement('span');
+        content.className = 'annotation-text';
+        content.textContent = song.annotation;
+
+        annoBox.appendChild(label);
+        annoBox.appendChild(document.createTextNode(' '));
+        annoBox.appendChild(content);
         songView.prepend(annoBox);
     }
 
@@ -1403,9 +1560,50 @@ function renderCurrent() {
     // Track spacing between rendered lines so blank lines don't stack up.
     let lastWasEmpty = false;
     let previousRenderedType = null;
+    let currentSectionHeadingRawLineIndex = -1;
     
-    parsed.lines.forEach((lineTokens, lineIndex) => {
-        const rawLine = contentLines[lineIndex] || '';
+    let parsedLineIndex = 0;
+    let contentLineIndex = 0;
+
+    rawLines.forEach((rawLine, rawLineIndex) => {
+        const directive = parseDirectiveLine(rawLine);
+        if (directive) {
+            if (directive.key === INLINE_COMMENT_DIRECTIVE) {
+                const commentDiv = document.createElement('div');
+                commentDiv.className = 'flow-comment-box';
+
+                const commentLabel = document.createElement('strong');
+                commentLabel.className = 'flow-comment-label';
+                commentLabel.textContent = 'Comment:';
+
+                const commentText = document.createElement('span');
+                commentText.className = 'flow-comment-text';
+                commentText.textContent = directive.value;
+
+                commentDiv.appendChild(commentLabel);
+                commentDiv.appendChild(document.createTextNode(' '));
+                commentDiv.appendChild(commentText);
+                if (chordEditMode && currentSectionHeadingRawLineIndex >= 0) {
+                    const sectionHeadingIndexForComment = currentSectionHeadingRawLineIndex;
+                    commentDiv.classList.add('flow-comment-target');
+                    commentDiv.title = 'Edit comment below section';
+                    commentDiv.addEventListener('click', (event) => {
+                        event.stopPropagation();
+                        openSectionInlineCommentEditor(song, sectionHeadingIndexForComment);
+                    });
+                }
+                songView.appendChild(commentDiv);
+                lastWasEmpty = false;
+                previousRenderedType = 'comment';
+            }
+            return;
+        }
+
+        const lineTokens = parsed.lines[parsedLineIndex] || [];
+        const lineIndex = contentLineIndex;
+        parsedLineIndex++;
+        contentLineIndex++;
+
         const isEmptyLine = rawLine.trim() === '';
         const nextRawLine = contentLines[lineIndex + 1] || '';
         const nextIsHeading = Boolean(detectSectionType(nextRawLine));
@@ -1427,6 +1625,15 @@ function renderCurrent() {
                 sectionDiv.classList.add('tight-top');
             }
             sectionDiv.textContent = rawLine;
+            currentSectionHeadingRawLineIndex = rawLineIndex;
+            if (chordEditMode) {
+                sectionDiv.classList.add('section-comment-target');
+                sectionDiv.title = 'Add comment below section';
+                sectionDiv.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    openSectionInlineCommentEditor(song, rawLineIndex);
+                });
+            }
             songView.appendChild(sectionDiv);
             lastSectionAnchors[sectionType] = sectionDiv;
             previousRenderedType = 'section';
@@ -1867,7 +2074,7 @@ function showAnnotationEditor(song) {
 
     const textarea = document.createElement('textarea');
     textarea.rows = 4;
-    textarea.placeholder = 'Add a note for this song...';
+    textarea.placeholder = 'Add a memo for this song...';
     textarea.value = song.annotation || '';
 
     const btnRow = document.createElement('div');
