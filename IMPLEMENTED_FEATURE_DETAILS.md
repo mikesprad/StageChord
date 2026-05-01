@@ -118,7 +118,7 @@ A collection of small UX enhancements:
 - **Desktop-mode iPad detection:** Added fallback detection for iPadOS devices that report as `Macintosh` Safari 15, ensuring the compatible menu path is chosen.
 - **Non-module import fallback:** When the module app cannot load, fallback script imports bundles and set files directly into IndexedDB. Fallback DB version matches main app (v2). Bundle imports go into active library via pending library id handoff.
 - **Font size controls:** Added `Aa-` / `Aa+` controls that scale lyric and chord text together while keeping alignment intact.
-- **Manage Set:** Renamed the song order panel to Manage Set and added a remove-song control in the reorder list.
+- **Reorder Set:** Renamed the song order panel to Reorder Set and added a remove-song control in the reorder list.
 - **Contact email:** A mailto link (`stagechord@spradbery.com`) is shown at the bottom of Songs & Help (removed from main menu).
 - **Button row:** Comment, Stave, and Edit buttons are on their own line below the key/tempo info for a cleaner layout.
 - **Edit mode (key/tempo):** The "Edit" button now also exposes inline Key and Tempo fields. Editing the key respects the current transpose offset. Both use standard ChordPro metadata directives.

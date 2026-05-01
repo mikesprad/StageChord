@@ -120,6 +120,11 @@ function validateLibraryName(name) {
     return normalized;
 }
 
+function normalizeLibraryId(libraryId) {
+    const parsed = Number.parseInt(libraryId, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_LIBRARY_ID;
+}
+
 function normalizeSetlistName(name) {
     return String(name || '').trim().replace(/\s+/g, ' ');
 }
@@ -148,9 +153,11 @@ export async function getDefaultLibrary() {
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const tx = db.transaction('libraries', 'readonly');
-        const idx = tx.objectStore('libraries').index('isDefault');
-        const req = idx.get(true);
-        req.onsuccess = () => resolve(req.result || null);
+        const req = tx.objectStore('libraries').getAll();
+        req.onsuccess = () => {
+            const libraries = Array.isArray(req.result) ? req.result : [];
+            resolve(libraries.find((lib) => lib && lib.isDefault) || null);
+        };
         req.onerror = () => reject(req.error);
     });
 }
@@ -336,13 +343,14 @@ function hashText(text) {
 
 export async function addSong(filename, originalText, libraryId = DEFAULT_LIBRARY_ID) {
     const db = await openDB();
+    const normalizedLibraryId = normalizeLibraryId(libraryId);
     const hash = hashText(originalText);
 
     // Check for duplicate by content hash within this library
     const existing = await new Promise((resolve, reject) => {
         const tx = db.transaction('songs', 'readonly');
         const idx = tx.objectStore('songs').index('libraryContentHash');
-        const req = idx.getAll([libraryId, hash]);
+        const req = idx.getAll([normalizedLibraryId, hash]);
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
     });
@@ -354,7 +362,7 @@ export async function addSong(filename, originalText, libraryId = DEFAULT_LIBRAR
         const tx = db.transaction('songs', 'readwrite');
         const store = tx.objectStore('songs');
         const req = store.add({
-            libraryId,
+            libraryId: normalizedLibraryId,
             filename,
             originalText,
             contentHash: hash,
@@ -388,7 +396,7 @@ export async function getAllSongs(libraryId = null) {
     return new Promise((resolve, reject) => {
         const tx = db.transaction('songs', 'readonly');
         const idx = tx.objectStore('songs').index('libraryId');
-        const req = idx.getAll(libraryId);
+        const req = idx.getAll(normalizeLibraryId(libraryId));
         req.onsuccess = () => resolve(req.result || []);
         req.onerror = () => reject(req.error);
     });
@@ -439,9 +447,7 @@ export async function saveSongState(songId, state) {
 
 export async function saveSetlist(setlist) {
     const db = await openDB();
-    if (!setlist.libraryId) {
-        setlist.libraryId = await getDefaultLibraryId();
-    }
+    setlist.libraryId = normalizeLibraryId(setlist.libraryId || await getDefaultLibraryId());
     const normalizedName = normalizeSetlistName(setlist.name);
     setlist.name = normalizedName || 'Untitled Set';
     if (!setlist.id) {
@@ -484,7 +490,7 @@ export async function getAllSetlists(libraryId = null) {
     return new Promise((resolve, reject) => {
         const tx = db.transaction('setlists', 'readonly');
         const idx = tx.objectStore('setlists').index('libraryId');
-        const req = idx.getAll(libraryId);
+        const req = idx.getAll(normalizeLibraryId(libraryId));
         req.onsuccess = () => resolve(req.result || []);
         req.onerror = () => reject(req.error);
     });
@@ -614,6 +620,7 @@ export async function exportSetlist(setlistId) {
 }
 
 export async function importSetlist(data, libraryId = DEFAULT_LIBRARY_ID) {
+    const normalizedLibraryId = normalizeLibraryId(libraryId);
     const setType = data && data.type;
     if (!data || !Array.isArray(data.songs) || (setType !== 'setlist' && setType !== 'stagechordset')) {
         throw new Error('Invalid setlist file');
@@ -637,7 +644,7 @@ export async function importSetlist(data, libraryId = DEFAULT_LIBRARY_ID) {
         }
 
         try {
-            const id = await addSong(filename, originalText, libraryId);
+            const id = await addSong(filename, originalText, normalizedLibraryId);
             if (entry.state && typeof entry.state === 'object') {
                 try {
                     const existingState = await getSongState(id);
@@ -661,7 +668,7 @@ export async function importSetlist(data, libraryId = DEFAULT_LIBRARY_ID) {
 
     const setlist = {
         name: normalizeSetlistName(data.name) || 'Imported Set',
-        libraryId,
+        libraryId: normalizedLibraryId,
         songIds,
         currentIndex: 0,
         createdAt: Date.now()

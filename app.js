@@ -1,5 +1,5 @@
-import { parseChordPro } from './parser.js?v=20260501T3';
-import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20260501T3';
+import { parseChordPro } from './parser.js?v=20260501T4';
+import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20260501T4';
 import {
     addSong, getSong, getAllSongs, deleteSong,
     getSongState, saveSongState,
@@ -7,7 +7,7 @@ import {
     exportLibrary, importLibrary,
     exportSetlist, importSetlist,
     getDefaultLibrary, getAllLibraries, getLibrary, addLibrary, renameLibrary, deleteLibrary
-} from './db.js?v=20260501T3';
+} from './db.js?v=20260501T4';
 
 // Signal to non-module fallback scripts that the app module loaded successfully.
 window.__stagechordAppReady = true;
@@ -2244,6 +2244,72 @@ function closeLibraryModal() {
 libraryModalClose.addEventListener('click', closeLibraryModal);
 libraryModalOverlay.addEventListener('click', closeLibraryModal);
 
+function setLibraryDoneButtonsDisabled(disabled) {
+    if (libraryAddSelected) {
+        libraryAddSelected.disabled = disabled;
+    }
+}
+
+function setLibraryDoneButtonsVisible(isSetMode) {
+    if (libraryModalActions) {
+        libraryModalActions.style.display = isSetMode ? 'block' : 'none';
+    }
+}
+
+async function applyLibrarySelectionAndClose() {
+    const checkboxes = Array.from(librarySongList.querySelectorAll('input[type="checkbox"]'));
+    const selectedIds = checkboxes.filter(cb => cb.checked).map(cb => Number(cb.value));
+    const currentSongId = songs[currentIndex]?.songId;
+    const songMap = new Map(songs.map((song) => [song.songId, song]));
+    const updatedSongs = [];
+
+    for (const songId of selectedIds) {
+        if (songMap.has(songId)) {
+            updatedSongs.push(songMap.get(songId));
+        } else {
+            const songRecord = await getSong(songId);
+            if (!songRecord) continue;
+            const state = await getSongState(songId) || {};
+            updatedSongs.push({
+                songId,
+                name: songRecord.filename,
+                originalText: songRecord.originalText,
+                text: state.editedText || songRecord.originalText,
+                transpose: state.transpose || 0,
+                annotation: state.annotation || '',
+                stave: state.stave || null,
+                staveTimeSig: state.staveTimeSig || null,
+            });
+        }
+    }
+
+    songs = updatedSongs;
+    if (songs.length === 0) {
+        currentIndex = -1;
+    } else {
+        const existingIndex = songs.findIndex((s) => s.songId === currentSongId);
+        currentIndex = existingIndex !== -1 ? existingIndex : 0;
+    }
+
+    populateSelect();
+    if (currentIndex >= 0) {
+        fileSelect.selectedIndex = currentIndex;
+    }
+    renderCurrent();
+    updateNav();
+    saveSessionRef();
+    closeLibraryModal();
+}
+
+async function onLibraryDoneClick() {
+    try {
+        setLibraryDoneButtonsDisabled(true);
+        await applyLibrarySelectionAndClose();
+    } finally {
+        setLibraryDoneButtonsDisabled(false);
+    }
+}
+
 async function openLibraryBrowser(mode = 'set') {
     const isManageMode = mode === 'manage';
     const allSongs = await getAllSongs(currentLibraryId);
@@ -2260,7 +2326,7 @@ async function openLibraryBrowser(mode = 'set') {
             ? `Manage Library (${libName})` 
             : 'Add Songs to Set';
     }
-    libraryModalActions.style.display = isManageMode ? 'none' : 'block';
+    setLibraryDoneButtonsVisible(!isManageMode);
 
     if (allSongs.length === 0) {
         const emptyMessage = isManageMode
@@ -2330,51 +2396,7 @@ async function openLibraryBrowser(mode = 'set') {
     libraryModal.classList.remove('hidden');
 }
 
-libraryAddSelected.addEventListener('click', async () => {
-    const checkboxes = Array.from(librarySongList.querySelectorAll('input[type="checkbox"]'));
-    const selectedIds = checkboxes.filter(cb => cb.checked).map(cb => Number(cb.value));
-    const selectedSet = new Set(selectedIds);
-    const currentSongId = songs[currentIndex]?.songId;
-    const songMap = new Map(songs.map((song) => [song.songId, song]));
-    const updatedSongs = [];
-
-    for (const songId of selectedIds) {
-        if (songMap.has(songId)) {
-            updatedSongs.push(songMap.get(songId));
-        } else {
-            const songRecord = await getSong(songId);
-            if (!songRecord) continue;
-            const state = await getSongState(songId) || {};
-            updatedSongs.push({
-                songId,
-                name: songRecord.filename,
-                originalText: songRecord.originalText,
-                text: state.editedText || songRecord.originalText,
-                transpose: state.transpose || 0,
-                annotation: state.annotation || '',
-                stave: state.stave || null,
-                staveTimeSig: state.staveTimeSig || null,
-            });
-        }
-    }
-
-    songs = updatedSongs;
-    if (songs.length === 0) {
-        currentIndex = -1;
-    } else {
-        const existingIndex = songs.findIndex((s) => s.songId === currentSongId);
-        currentIndex = existingIndex !== -1 ? existingIndex : 0;
-    }
-
-    populateSelect();
-    if (currentIndex >= 0) {
-        fileSelect.selectedIndex = currentIndex;
-    }
-    renderCurrent();
-    updateNav();
-    saveSessionRef();
-    closeLibraryModal();
-});
+libraryAddSelected.addEventListener('click', onLibraryDoneClick);
 
 // ── Load Set Modal ───────────────────────────────────
 

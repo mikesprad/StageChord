@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StageChord</title>
-    <link rel="stylesheet" href="styles.css?v=20260501T3">
+    <link rel="stylesheet" href="styles.css?v=20260501T4">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2f7d6c">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -104,7 +104,7 @@
         <section id="controls">
             <div id="song-order-row">
                 <div id="song-order-collapsed">
-                    <button id="song-order-btn" type="button">Manage Set</button>
+                    <button id="song-order-btn" type="button">Reorder Set</button>
                     <select id="file-select" size="1"></select>
                 </div>
                 <div id="song-order-expanded" class="hidden">
@@ -150,7 +150,7 @@
             </div>
             <div id="library-song-list"></div>
             <div id="library-modal-actions">
-                <button id="library-add-selected" type="button">Add Selected to Set</button>
+                <button id="library-add-selected" type="button">Add selected</button>
             </div>
         </div>
     </div>
@@ -200,7 +200,7 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=20260501T3"></script>
+    <script type="module" src="app.js?v=20260501T4"></script>
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./service-worker.js');

@@ -204,6 +204,11 @@ body.old-ios-menu #menu-panel {
   overflow-y: auto;
   box-shadow: 0 4px 24px rgba(0,0,0,0.3);
 }
+#library-modal-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 #library-modal-header,
 #loadset-modal-header,
 #saveset-modal-header,
@@ -215,6 +220,13 @@ body.old-ios-menu #menu-panel {
   font-weight: 700;
   font-size: 1.1rem;
 }
+#library-modal-header {
+  margin: -1rem -1rem 0.75rem -1rem;
+  padding: 1rem 1rem 0.5rem 1rem;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  flex-shrink: 0;
+}
 #library-modal-header button,
 #loadset-modal-header button,
 #saveset-modal-header button,
@@ -224,6 +236,27 @@ body.old-ios-menu #menu-panel {
   font-size: 1.3rem;
   cursor: pointer;
   padding: 0.2rem 0.4rem;
+}
+#library-add-selected {
+  padding: 0.4rem 0.8rem;
+  background: #2f7d6c;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+#library-add-selected:hover {
+  background: #266b5c;
+}
+#library-add-selected:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+#library-song-list {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
 }
 .library-song-item {
   display: flex;
@@ -248,18 +281,7 @@ body.old-ios-menu #menu-panel {
 #library-modal-actions {
   margin-top: 0.75rem;
   text-align: right;
-}
-#library-add-selected {
-  padding: 0.4rem 0.8rem;
-  background: #2f7d6c;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.95rem;
-}
-#library-add-selected:hover {
-  background: #266b5c;
+  flex-shrink: 0;
 }
 #manage-libraries-form {
   margin-bottom: 0.75rem;
