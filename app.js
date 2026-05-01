@@ -1,5 +1,5 @@
-import { parseChordPro } from './parser.js?v=20260415T2';
-import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20260415T2';
+import { parseChordPro } from './parser.js?v=20260501T3';
+import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20260501T3';
 import {
     addSong, getSong, getAllSongs, deleteSong,
     getSongState, saveSongState,
@@ -7,7 +7,7 @@ import {
     exportLibrary, importLibrary,
     exportSetlist, importSetlist,
     getDefaultLibrary, getAllLibraries, getLibrary, addLibrary, renameLibrary, deleteLibrary
-} from './db.js?v=20260415T2';
+} from './db.js?v=20260501T3';
 
 // Signal to non-module fallback scripts that the app module loaded successfully.
 window.__stagechordAppReady = true;
