@@ -1,9 +1,15 @@
 // StageChord Service Worker
-const CACHE_VERSION = 'sv-v11';
+const CACHE_VERSION = 'sv-v12';
+const APP_BUILD_ID = '20260502T1';
 const APP_ASSETS = [
     './',
     './index.html',
     './help.html',
+    `./app.js?v=${APP_BUILD_ID}`,
+    `./parser.js?v=${APP_BUILD_ID}`,
+    `./stave.js?v=${APP_BUILD_ID}`,
+    `./db.js?v=${APP_BUILD_ID}`,
+    `./styles.css?v=${APP_BUILD_ID}`,
     './app.js',
     './parser.js',
     './stave.js',
@@ -62,6 +68,6 @@ self.addEventListener('fetch', (event) => {
                 caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, clone));
             }
             return response;
-        }).catch(() => caches.match(event.request))
+        }).catch(() => caches.match(event.request, { ignoreSearch: true }))
     );
 });

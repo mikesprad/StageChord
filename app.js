@@ -1,5 +1,5 @@
-import { parseChordPro } from './parser.js?v=20260501T4';
-import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20260501T4';
+import { parseChordPro } from './parser.js?v=20260502T1';
+import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20260502T1';
 import {
     addSong, getSong, getAllSongs, deleteSong,
     getSongState, saveSongState,
@@ -7,7 +7,65 @@ import {
     exportLibrary, importLibrary,
     exportSetlist, importSetlist,
     getDefaultLibrary, getAllLibraries, getLibrary, addLibrary, renameLibrary, deleteLibrary
-} from './db.js?v=20260501T4';
+} from './db.js?v=20260502T1';
+
+const APP_BUILD_ID = '20260502T1';
+const SHELL_BUILD_ID = window.__STAGECHORD_BUILD_ID__ || null;
+const FORCED_REFRESH_KEY = 'stagechord_forced_refresh_build';
+
+function showUpdateBanner(message) {
+    if (document.getElementById('app-update-overlay')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'app-update-overlay';
+    overlay.className = 'app-update-overlay';
+    overlay.innerHTML = ''
+        + '<div class="app-update-card">'
+        + '  <div class="app-update-spinner" aria-hidden="true"></div>'
+        + '  <h2 class="app-update-title">Updating StageChord</h2>'
+        + `  <p class="app-update-text">${message || 'Applying updates and restoring your library view. This usually takes a moment.'}</p>`
+        + '</div>';
+    document.body.appendChild(overlay);
+}
+
+async function forceFullRefresh(reason) {
+    showUpdateBanner('Applying updates and restoring your library view. This usually takes a moment.');
+
+    try {
+        const alreadyRefreshed = localStorage.getItem(FORCED_REFRESH_KEY);
+        if (alreadyRefreshed === APP_BUILD_ID) return;
+        localStorage.setItem(FORCED_REFRESH_KEY, APP_BUILD_ID);
+    } catch (_) {}
+
+    try {
+        if ('serviceWorker' in navigator) {
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (registration) {
+                await registration.update();
+            }
+        }
+    } catch (_) {}
+
+    try {
+        if ('caches' in window) {
+            const cacheKeys = await caches.keys();
+            await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+        }
+    } catch (_) {}
+
+    try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('refresh', APP_BUILD_ID);
+        url.searchParams.set('reason', reason);
+        window.location.replace(url.toString());
+    } catch (_) {
+        window.location.reload();
+    }
+}
+
+if (SHELL_BUILD_ID && SHELL_BUILD_ID !== APP_BUILD_ID) {
+    forceFullRefresh('build-mismatch');
+    throw new Error('StageChord build mismatch detected; forcing full refresh.');
+}
 
 // Signal to non-module fallback scripts that the app module loaded successfully.
 window.__stagechordAppReady = true;

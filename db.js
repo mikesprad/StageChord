@@ -8,6 +8,56 @@ const LIBRARY_NAME_LIMIT = 17;
 
 let dbPromise = null;
 
+function ensureLibraryConsistency(db) {
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(['libraries', 'songs', 'setlists'], 'readwrite');
+        const libStore = tx.objectStore('libraries');
+        const songStore = tx.objectStore('songs');
+        const setStore = tx.objectStore('setlists');
+
+        const defaultReq = libStore.get(DEFAULT_LIBRARY_ID);
+        defaultReq.onsuccess = () => {
+            if (!defaultReq.result) {
+                libStore.put({
+                    id: DEFAULT_LIBRARY_ID,
+                    name: 'Default',
+                    lowerName: 'default',
+                    isDefault: true,
+                    createdAt: Date.now()
+                });
+            }
+        };
+        defaultReq.onerror = () => reject(defaultReq.error);
+
+        const songsReq = songStore.getAll();
+        songsReq.onsuccess = () => {
+            const songs = songsReq.result || [];
+            for (const row of songs) {
+                if (!row.libraryId) {
+                    row.libraryId = DEFAULT_LIBRARY_ID;
+                    songStore.put(row);
+                }
+            }
+        };
+        songsReq.onerror = () => reject(songsReq.error);
+
+        const setsReq = setStore.getAll();
+        setsReq.onsuccess = () => {
+            const sets = setsReq.result || [];
+            for (const row of sets) {
+                if (!row.libraryId) {
+                    row.libraryId = DEFAULT_LIBRARY_ID;
+                    setStore.put(row);
+                }
+            }
+        };
+        setsReq.onerror = () => reject(setsReq.error);
+
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
 function openDB() {
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject) => {
@@ -88,7 +138,15 @@ function openDB() {
                 };
             }
         };
-        req.onsuccess = () => resolve(req.result);
+        req.onsuccess = () => {
+            const db = req.result;
+            ensureLibraryConsistency(db)
+                .then(() => resolve(db))
+                .catch((err) => {
+                    console.warn('Library consistency repair failed:', err);
+                    resolve(db);
+                });
+        };
         req.onerror = () => reject(req.error);
     });
     return dbPromise;

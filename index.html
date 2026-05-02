@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StageChord</title>
-    <link rel="stylesheet" href="styles.css?v=20260501T4">
+    <link rel="stylesheet" href="styles.css?v=20260502T1">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2f7d6c">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -200,8 +200,13 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=20260501T4"></script>
     <script>
+        window.__STAGECHORD_BUILD_ID__ = '20260502T1';
+    </script>
+    <script type="module" src="app.js?v=20260502T1"></script>
+    <script>
+        const MODULE_RECOVERY_KEY = 'stagechord_module_recovery_build';
+
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./service-worker.js');
         }
@@ -232,6 +237,56 @@
 
             function appReady() {
                 return !!window.__stagechordAppReady;
+            }
+
+            function showUpdateBanner(message) {
+                if (document.getElementById('app-update-overlay')) return;
+                const overlay = document.createElement('div');
+                overlay.id = 'app-update-overlay';
+                overlay.className = 'app-update-overlay';
+                overlay.innerHTML = ''
+                    + '<div class="app-update-card">'
+                    + '  <div class="app-update-spinner" aria-hidden="true"></div>'
+                    + '  <h2 class="app-update-title">Updating StageChord</h2>'
+                    + `  <p class="app-update-text">${message || 'Refreshing app files to keep your songs and libraries available.'}</p>`
+                    + '</div>';
+                document.body.appendChild(overlay);
+            }
+
+            async function forceModuleRecovery(reason) {
+                showUpdateBanner('Refreshing app files to keep your songs and libraries available.');
+                const build = window.__STAGECHORD_BUILD_ID__ || 'unknown';
+                const recoveryToken = `${build}:${reason}`;
+                try {
+                    const prior = localStorage.getItem(MODULE_RECOVERY_KEY);
+                    if (prior === recoveryToken) return;
+                    localStorage.setItem(MODULE_RECOVERY_KEY, recoveryToken);
+                } catch (_) {}
+
+                try {
+                    if ('serviceWorker' in navigator) {
+                        const registration = await navigator.serviceWorker.getRegistration();
+                        if (registration) {
+                            await registration.update();
+                        }
+                    }
+                } catch (_) {}
+
+                try {
+                    if ('caches' in window) {
+                        const cacheKeys = await caches.keys();
+                        await Promise.all(cacheKeys.map((key) => caches.delete(key)));
+                    }
+                } catch (_) {}
+
+                try {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('refresh', build);
+                    url.searchParams.set('reason', reason);
+                    window.location.replace(url.toString());
+                } catch (_) {
+                    window.location.reload();
+                }
             }
 
             function closeMenus() {
@@ -611,6 +666,15 @@
 
             window.addEventListener('load', function() {
                 if (!appReady()) {
+                    // If the device should support the full module app but it did not load,
+                    // force a one-time full refresh to recover from mixed cached assets.
+                    if (!needsFallback) {
+                        setTimeout(function() {
+                            if (!appReady()) {
+                                forceModuleRecovery('module-not-ready');
+                            }
+                        }, 3500);
+                    }
                     importPendingLibraryFallback();
                 }
             });
