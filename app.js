@@ -480,8 +480,8 @@ document.getElementById('menu-new-set').addEventListener('click', () => {
 });
 
 document.getElementById('menu-add-songs').addEventListener('click', () => {
-    fileInput.click();
     closeMenu();
+    fileInput.click();
 });
 
 if (addSongsToSetBtn) {
@@ -650,7 +650,7 @@ if (needsIOSFallback) {
     // Wire iOS menu buttons to same handlers as regular menu
     const iosButtonMap = {
         'ios-menu-new-set': () => { closeMenu(); clearSet(); },
-        'ios-menu-add-songs': () => { fileInput.click(); closeMenu(); },
+        'ios-menu-add-songs': () => { closeMenu(); fileInput.click(); },
         'ios-menu-add-songs-to-set': () => { closeMenu(); openLibraryBrowser('set'); },
         'ios-menu-manage-libraries': () => { closeMenu(); openManageLibrariesModal(); },
         'ios-menu-delete-songs': () => { closeMenu(); openLibraryBrowser('manage'); },
