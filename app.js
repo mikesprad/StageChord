@@ -1,5 +1,5 @@
-import { parseChordPro } from './parser.js?v=20260502T1';
-import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20260502T1';
+import { parseChordPro } from './parser.js?v=20261004T1';
+import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20261004T1';
 import {
     addSong, getSong, getAllSongs, deleteSong,
     getSongState, saveSongState,
@@ -7,9 +7,9 @@ import {
     exportLibrary, importLibrary,
     exportSetlist, importSetlist,
     getDefaultLibrary, getAllLibraries, getLibrary, addLibrary, renameLibrary, deleteLibrary
-} from './db.js?v=20260502T1';
+} from './db.js?v=20261004T1';
 
-const APP_BUILD_ID = '20260502T1';
+const APP_BUILD_ID = '20261004T1';
 const SHELL_BUILD_ID = window.__STAGECHORD_BUILD_ID__ || null;
 const FORCED_REFRESH_KEY = 'stagechord_forced_refresh_build';
 
@@ -769,13 +769,21 @@ importSetInput.addEventListener('change', async () => {
         const data = JSON.parse(text);
         const setlist = await importSetlist(data, libraryId);
         await loadSetlistIntoView(setlist.id);
-        const skipped = Number.isFinite(setlist.skipped) ? setlist.skipped : 0;
-        alert(`Imported set "${setlist.name}" with ${setlist.songIds.length} song(s), ${skipped} skipped.`);
+        alert(formatSetImportMessage('Imported set', setlist));
     } catch (e) {
         alert('Failed to import set: ' + e.message);
     }
     importSetInput.value = '';
 });
+
+function formatSetImportMessage(prefix, setlist) {
+    const skipped = Number.isFinite(setlist.skipped) ? setlist.skipped : 0;
+    let message = `${prefix} "${setlist.name}" with ${setlist.songIds.length} song(s), ${skipped} skipped.`;
+    if (setlist.keysUpdated > 0) {
+        message += `\n\nUpdated the key of ${setlist.keysUpdated} existing song(s) to match the set.`;
+    }
+    return message;
+}
 
 function clearSetUrlQueryParam() {
     const url = new URL(location.href);
@@ -882,8 +890,7 @@ async function importFromUrlHash() {
             await loadSetlistIntoView(setlist.id);
             clearSetUrlQueryParam();
 
-            const skipped = Number.isFinite(setlist.skipped) ? setlist.skipped : 0;
-            let message = `Imported set "${setlist.name}" with ${setlist.songIds.length} song(s), ${skipped} skipped.`;
+            let message = formatSetImportMessage('Imported set', setlist);
             if (draftName) {
                 message = `Saved current set as "${draftName}" before import.\n\n${message}`;
             }
@@ -906,8 +913,7 @@ async function importFromUrlHash() {
         await loadSetlistIntoView(setlist.id);
         // Clean the hash so a reload doesn't re-import
         history.replaceState(null, '', location.pathname + location.search);
-        const skipped = Number.isFinite(setlist.skipped) ? setlist.skipped : 0;
-        alert(`Imported shared set "${setlist.name}" with ${setlist.songIds.length} song(s), ${skipped} skipped.`);
+        alert(formatSetImportMessage('Imported shared set', setlist));
         return true;
     } catch (e) {
         alert('Failed to import shared set: ' + e.message);
