@@ -6,7 +6,11 @@
   "type": "module",
   "homepage": "https://github.com/mikesprad/StageChord",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed --project=chromium --workers=1",
+    "test:all": "jest && playwright test"
   },
   "keywords": [
     "chordpro",
@@ -19,11 +23,16 @@
   "devDependencies": {
     "@babel/core": "^7.0.0",
     "@babel/preset-env": "^7.0.0",
+    "@playwright/test": "^1.63.0",
     "babel-jest": "^30.5.2",
     "jest": "^30.5.2"
   },
   "jest": {
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/tests/e2e/"
+    ]
   },
   "dependencies": {
     "vexflow": "^4.2.5"

@@ -701,6 +701,8 @@ export async function importSetlist(data, libraryId = DEFAULT_LIBRARY_ID) {
     let imported = 0;
     let skipped = 0;
     let keysUpdated = 0;
+    // Songs already in the library before this import, for reporting key changes.
+    const existingSongIds = new Set((await getAllSongs(normalizedLibraryId)).map((s) => s.id));
 
     for (const entry of data.songs) {
         if (!entry || typeof entry !== 'object') {
@@ -720,17 +722,18 @@ export async function importSetlist(data, libraryId = DEFAULT_LIBRARY_ID) {
             if (entry.state && typeof entry.state === 'object') {
                 try {
                     const existingState = await getSongState(id);
+                    const keyChanged = hasImportedTranspose(entry.state)
+                        && normalizeTranspose(entry.state.transpose)
+                            !== normalizeTranspose(existingState ? existingState.transpose : 0);
                     if (!existingState || !existingState.updatedAt) {
                         await saveSongState(id, entry.state);
-                    } else if (hasImportedTranspose(entry.state)) {
+                    } else if (keyChanged) {
                         // A song has one key across the app; the imported set's key wins.
                         // Annotations, staves and edits on the existing song are kept.
                         const transpose = normalizeTranspose(entry.state.transpose);
-                        if (transpose !== normalizeTranspose(existingState.transpose)) {
-                            await saveSongState(id, { ...existingState, transpose });
-                            keysUpdated++;
-                        }
+                        await saveSongState(id, { ...existingState, transpose });
                     }
+                    if (keyChanged && existingSongIds.has(id)) keysUpdated++;
                 } catch (_) {
                     // Keep importing other songs if song state cannot be applied.
                 }

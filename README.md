@@ -13,10 +13,27 @@ Mobile-friendly ChordPro viewer and setlist manager. Runs entirely in the browse
 
 ## Development
 
+### Prerequisites
+- Node.js 20 or later (required by Playwright)
+- Playwright browsers, installed once per machine after `npm install`:
+
 ```
-npm install   # install dev dependencies (Jest)
-npm test      # run parser unit tests
+npx playwright install chromium webkit
 ```
+
+### Running tests
+
+```
+npm install        # install dev dependencies (Jest, Playwright)
+npm test           # unit tests (Jest)
+npm run test:e2e   # end-to-end tests (Playwright)
+npm run test:all   # both
+
+npm run test:e2e:ui       # Playwright UI: pick tests, watch them run, step through each action
+npm run test:e2e:headed   # run in a visible Chromium window, one test at a time
+```
+
+The end-to-end tests start their own local server (`tests/e2e/serve.mjs`) and run each flow in desktop Chromium, a modern iPad, and an iOS 12 iPad profile. That last one exercises the iOS fallback menu. Run `npx playwright test --project=chromium` for a quicker single-browser pass.
 
 ## Deployment
 
