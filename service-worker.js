@@ -1,6 +1,6 @@
 // StageChord Service Worker
-const CACHE_VERSION = 'sv-v13';
-const APP_BUILD_ID = '20261004T1';
+const CACHE_VERSION = 'sv-v14';
+const APP_BUILD_ID = '20261016T1';
 const APP_ASSETS = [
     './',
     './index.html',
