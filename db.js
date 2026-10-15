@@ -641,6 +641,17 @@ export async function importLibrary(data, libraryId = DEFAULT_LIBRARY_ID) {
 
 // ── Export / Import Setlist ─────────────────────────
 
+function normalizeTranspose(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return ((Math.round(n) % 12) + 12) % 12;
+}
+
+function hasImportedTranspose(state) {
+    return state.transpose !== undefined && state.transpose !== null
+        && Number.isFinite(Number(state.transpose));
+}
+
 export async function exportSetlist(setlistId) {
     const setlist = await getSetlist(setlistId);
     if (!setlist) throw new Error('Setlist not found');
@@ -654,16 +665,18 @@ export async function exportSetlist(setlistId) {
         const song = await getSong(songId);
         const state = await getSongState(songId);
         if (song) {
+            // Always send state so the key is explicit: importing a set sets the
+            // key of each song, including songs left in their original key.
             songEntries.push({
                 filename: song.filename,
                 originalText: song.originalText,
-                state: state ? {
-                    transpose: state.transpose || 0,
-                    annotation: state.annotation || '',
-                    stave: state.stave || null,
-                    staveTimeSig: state.staveTimeSig || null,
-                    editedText: state.editedText || null
-                } : null
+                state: {
+                    transpose: (state && state.transpose) || 0,
+                    annotation: (state && state.annotation) || '',
+                    stave: (state && state.stave) || null,
+                    staveTimeSig: (state && state.staveTimeSig) || null,
+                    editedText: (state && state.editedText) || null
+                }
             });
         }
     }
@@ -687,6 +700,9 @@ export async function importSetlist(data, libraryId = DEFAULT_LIBRARY_ID) {
     const songIds = [];
     let imported = 0;
     let skipped = 0;
+    let keysUpdated = 0;
+    // Songs already in the library before this import, for reporting key changes.
+    const existingSongIds = new Set((await getAllSongs(normalizedLibraryId)).map((s) => s.id));
 
     for (const entry of data.songs) {
         if (!entry || typeof entry !== 'object') {
@@ -706,9 +722,18 @@ export async function importSetlist(data, libraryId = DEFAULT_LIBRARY_ID) {
             if (entry.state && typeof entry.state === 'object') {
                 try {
                     const existingState = await getSongState(id);
+                    const keyChanged = hasImportedTranspose(entry.state)
+                        && normalizeTranspose(entry.state.transpose)
+                            !== normalizeTranspose(existingState ? existingState.transpose : 0);
                     if (!existingState || !existingState.updatedAt) {
                         await saveSongState(id, entry.state);
+                    } else if (keyChanged) {
+                        // A song has one key across the app; the imported set's key wins.
+                        // Annotations, staves and edits on the existing song are kept.
+                        const transpose = normalizeTranspose(entry.state.transpose);
+                        await saveSongState(id, { ...existingState, transpose });
                     }
+                    if (keyChanged && existingSongIds.has(id)) keysUpdated++;
                 } catch (_) {
                     // Keep importing other songs if song state cannot be applied.
                 }
@@ -734,5 +759,6 @@ export async function importSetlist(data, libraryId = DEFAULT_LIBRARY_ID) {
     const saved = await saveSetlist(setlist);
     saved.imported = imported;
     saved.skipped = skipped;
+    saved.keysUpdated = keysUpdated;
     return saved;
 }
