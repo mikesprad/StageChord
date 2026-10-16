@@ -69,6 +69,19 @@ body {
 @keyframes app-update-spin {
   to { transform: rotate(360deg); }
 }
+.app-update-btn {
+  margin-top: 1rem;
+  padding: 0.55rem 1.4rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  background: #2f7d6c;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.app-update-btn:active { opacity: 0.85; }
 header {
   background: #444;
   color: #fff;
@@ -99,6 +112,17 @@ header h1 {
   letter-spacing: 0.02em;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+}
+#menu-btn.has-update::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #e8b84b;
+  border: 1px solid #444;
 }
 main {
   padding: 1rem;
@@ -222,6 +246,13 @@ body.old-ios-menu #menu-panel {
 }
 .menu-contact button:active {
   outline: none;
+}
+.menu-contact a.update-available,
+#ios-menu-content .menu-contact a.update-available {
+  font-weight: 700;
+}
+.menu-contact a.update-available::before {
+  content: '⟳ ';
 }
 
 /* ── Modals (library browser, load set, save set, manage libraries) ── */

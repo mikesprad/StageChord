@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StageChord</title>
-    <link rel="stylesheet" href="styles.css?v=20261016T1">
+    <link rel="stylesheet" href="styles.css?v=20261016T2">
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#2f7d6c">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -201,17 +201,11 @@
     </div>
 
     <script>
-        window.__STAGECHORD_BUILD_ID__ = '20261016T1';
+        window.__STAGECHORD_BUILD_ID__ = '20261016T2';
     </script>
-    <script type="module" src="app.js?v=20261016T1"></script>
+    <script type="module" src="app.js?v=20261016T2"></script>
     <script>
-        const MODULE_RECOVERY_KEY = 'stagechord_module_recovery_build';
-
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./service-worker.js');
-        }
-
-        // Non-module fallback only: used when app.js fails on older browsers/devices.
+        // Non-module fallback + user-controlled service-worker updates.
         (function() {
             const menuBtn = document.getElementById('menu-btn');
             const menuPanel = document.getElementById('menu-panel');
@@ -223,6 +217,75 @@
             const fileInput = document.getElementById('file-input');
             const importLibraryInput = document.getElementById('import-library-input');
             const importSetInput = document.getElementById('import-set-input');
+
+            // ── Service worker: cache-first app with user-controlled updates ──
+            // The app always loads instantly from the installed version. A new
+            // version downloads quietly and WAITS; we only surface it as an
+            // "Update Available" hint in the menu and apply it when the user taps.
+            let userInitiatedUpdate = false;
+
+            function markUpdateAvailable() {
+                if (menuBtn) menuBtn.classList.add('has-update');
+                ['menu-check-update', 'ios-menu-check-update'].forEach(function(id) {
+                    const el = document.getElementById(id);
+                    if (el) { el.textContent = 'Update Available'; el.classList.add('update-available'); }
+                });
+            }
+
+            function applyUpdate(registration) {
+                if (!registration || !registration.waiting) { window.location.reload(); return; }
+                userInitiatedUpdate = true;
+                showUpdateBanner('Applying the update…');
+                registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+
+            async function handleUpdateMenuClick(event) {
+                if (event) event.preventDefault();
+                closeMenus();
+                if (!('serviceWorker' in navigator)) { alert('Updates are not available in this browser.'); return; }
+                let registration = null;
+                try { registration = await navigator.serviceWorker.getRegistration(); } catch (_) {}
+                if (registration && registration.waiting) { applyUpdate(registration); return; }
+                // Nothing staged yet — check the server now (does not block the UI).
+                if (registration) { try { await registration.update(); } catch (_) {} }
+                if (registration && registration.waiting) { applyUpdate(registration); return; }
+                if (registration && registration.installing) {
+                    alert('An update is downloading. "Update Available" will appear in the menu shortly — tap it to apply.');
+                } else {
+                    alert('StageChord is up to date.');
+                }
+            }
+
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.addEventListener('controllerchange', function() {
+                    if (!userInitiatedUpdate) return;
+                    userInitiatedUpdate = false;
+                    window.location.reload();
+                });
+                navigator.serviceWorker.register('./service-worker.js').then(function(registration) {
+                    // A version already downloaded and waiting from a previous session.
+                    if (registration.waiting && navigator.serviceWorker.controller) markUpdateAvailable();
+                    registration.addEventListener('updatefound', function() {
+                        const incoming = registration.installing;
+                        if (!incoming) return;
+                        incoming.addEventListener('statechange', function() {
+                            // "installed" + an existing controller means this is an update
+                            // to a previous version, not the first-ever install.
+                            if (incoming.state === 'installed' && navigator.serviceWorker.controller) {
+                                markUpdateAvailable();
+                            }
+                        });
+                    });
+                    // Quietly check for a newer version when the app regains focus.
+                    document.addEventListener('visibilitychange', function() {
+                        if (document.visibilityState === 'visible') { registration.update().catch(function() {}); }
+                    });
+                }).catch(function() {});
+                ['menu-check-update', 'ios-menu-check-update'].forEach(function(id) {
+                    const el = document.getElementById(id);
+                    if (el) { el.addEventListener('click', handleUpdateMenuClick); }
+                });
+            }
 
             const userAgent = navigator.userAgent;
             const isIpadOSDesktopUA = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
@@ -253,40 +316,23 @@
                 document.body.appendChild(overlay);
             }
 
-            async function forceModuleRecovery(reason) {
-                showUpdateBanner('Refreshing app files to keep your songs and libraries available.');
-                const build = window.__STAGECHORD_BUILD_ID__ || 'unknown';
-                const recoveryToken = `${build}:${reason}`;
-                try {
-                    const prior = localStorage.getItem(MODULE_RECOVERY_KEY);
-                    if (prior === recoveryToken) return;
-                    localStorage.setItem(MODULE_RECOVERY_KEY, recoveryToken);
-                } catch (_) {}
-
-                try {
-                    if ('serviceWorker' in navigator) {
-                        const registration = await navigator.serviceWorker.getRegistration();
-                        if (registration) {
-                            await registration.update();
-                        }
-                    }
-                } catch (_) {}
-
-                try {
-                    if ('caches' in window) {
-                        const cacheKeys = await caches.keys();
-                        await Promise.all(cacheKeys.map((key) => caches.delete(key)));
-                    }
-                } catch (_) {}
-
-                try {
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('refresh', build);
-                    url.searchParams.set('reason', reason);
-                    window.location.replace(url.toString());
-                } catch (_) {
-                    window.location.reload();
-                }
+            // If the app module genuinely fails to load, offer a MANUAL reload
+            // rather than auto-reloading. Nothing reloads or clears caches without
+            // the user's tap — this is deliberately not the old forced-recovery loop.
+            function showModuleRecoveryPrompt() {
+                if (document.getElementById('app-update-overlay')) return;
+                const overlay = document.createElement('div');
+                overlay.id = 'app-update-overlay';
+                overlay.className = 'app-update-overlay';
+                overlay.innerHTML = ''
+                    + '<div class="app-update-card">'
+                    + '  <h2 class="app-update-title">StageChord needs to reload</h2>'
+                    + '  <p class="app-update-text">The app didn\'t finish loading. Tap Reload to try again — your songs and libraries are safe.</p>'
+                    + '  <button id="app-recovery-reload" class="app-update-btn" type="button">Reload</button>'
+                    + '</div>';
+                document.body.appendChild(overlay);
+                const reloadBtn = document.getElementById('app-recovery-reload');
+                if (reloadBtn) { reloadBtn.addEventListener('click', function() { window.location.reload(); }); }
             }
 
             function closeMenus() {
@@ -671,7 +717,7 @@
                     if (!needsFallback) {
                         setTimeout(function() {
                             if (!appReady()) {
-                                forceModuleRecovery('module-not-ready');
+                                showModuleRecoveryPrompt();
                             }
                         }, 3500);
                     }

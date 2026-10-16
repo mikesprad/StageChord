@@ -1,5 +1,5 @@
-import { parseChordPro } from './parser.js?v=20261016T1';
-import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20261016T1';
+import { parseChordPro } from './parser.js?v=20261016T2';
+import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20261016T2';
 import {
     addSong, getSong, getAllSongs, deleteSong,
     getSongState, saveSongState,
@@ -7,65 +7,12 @@ import {
     exportLibrary, importLibrary,
     exportSetlist, importSetlist,
     getDefaultLibrary, getAllLibraries, getLibrary, addLibrary, renameLibrary, deleteLibrary
-} from './db.js?v=20261016T1';
+} from './db.js?v=20261016T2';
 
-const APP_BUILD_ID = '20261016T1';
-const SHELL_BUILD_ID = window.__STAGECHORD_BUILD_ID__ || null;
-const FORCED_REFRESH_KEY = 'stagechord_forced_refresh_build';
-
-function showUpdateBanner(message) {
-    if (document.getElementById('app-update-overlay')) return;
-    const overlay = document.createElement('div');
-    overlay.id = 'app-update-overlay';
-    overlay.className = 'app-update-overlay';
-    overlay.innerHTML = ''
-        + '<div class="app-update-card">'
-        + '  <div class="app-update-spinner" aria-hidden="true"></div>'
-        + '  <h2 class="app-update-title">Updating StageChord</h2>'
-        + `  <p class="app-update-text">${message || 'Applying updates and restoring your library view. This usually takes a moment.'}</p>`
-        + '</div>';
-    document.body.appendChild(overlay);
-}
-
-async function forceFullRefresh(reason) {
-    showUpdateBanner('Applying updates and restoring your library view. This usually takes a moment.');
-
-    try {
-        const alreadyRefreshed = localStorage.getItem(FORCED_REFRESH_KEY);
-        if (alreadyRefreshed === APP_BUILD_ID) return;
-        localStorage.setItem(FORCED_REFRESH_KEY, APP_BUILD_ID);
-    } catch (_) {}
-
-    try {
-        if ('serviceWorker' in navigator) {
-            const registration = await navigator.serviceWorker.getRegistration();
-            if (registration) {
-                await registration.update();
-            }
-        }
-    } catch (_) {}
-
-    try {
-        if ('caches' in window) {
-            const cacheKeys = await caches.keys();
-            await Promise.all(cacheKeys.map((key) => caches.delete(key)));
-        }
-    } catch (_) {}
-
-    try {
-        const url = new URL(window.location.href);
-        url.searchParams.set('refresh', APP_BUILD_ID);
-        url.searchParams.set('reason', reason);
-        window.location.replace(url.toString());
-    } catch (_) {
-        window.location.reload();
-    }
-}
-
-if (SHELL_BUILD_ID && SHELL_BUILD_ID !== APP_BUILD_ID) {
-    forceFullRefresh('build-mismatch');
-    throw new Error('StageChord build mismatch detected; forcing full refresh.');
-}
+// Updates are handled by the service worker + the update manager in index.html
+// (cache-first, applied only when the user taps "Update Available"). There is no
+// build-id self-check here: it could brick the app on a harmless version skew and
+// is redundant now that the service worker serves one atomic version per session.
 
 // Signal to non-module fallback scripts that the app module loaded successfully.
 window.__stagechordAppReady = true;
@@ -359,7 +306,6 @@ const importSetInput = document.getElementById('import-set-input');
 const fontDecreaseBtn = document.getElementById('font-decrease-btn');
 const fontIncreaseBtn = document.getElementById('font-increase-btn');
 const addSongsToSetBtn = document.getElementById('menu-add-songs-to-set');
-const checkUpdateBtn = document.getElementById('menu-check-update');
 
 if (fontDecreaseBtn) fontDecreaseBtn.classList.add('annotate-btn');
 if (fontIncreaseBtn) fontIncreaseBtn.classList.add('annotate-btn');
@@ -510,40 +456,8 @@ if (fontIncreaseBtn) {
     fontIncreaseBtn.addEventListener('click', () => adjustFontSize(FONT_SIZE_STEP));
 }
 
-if (checkUpdateBtn) {
-    checkUpdateBtn.addEventListener('click', async (event) => {
-        event.preventDefault();
-        closeMenu();
-        await runUpdateCheck();
-    });
-}
-
-async function clearAppCaches() {
-    if (!('caches' in window)) return;
-    try {
-        const cacheKeys = await caches.keys();
-        await Promise.all(cacheKeys.map((key) => caches.delete(key)));
-    } catch (e) {
-        console.warn('Failed to clear caches during update check', e);
-    }
-}
-
-async function runUpdateCheck() {
-    try {
-        if ('serviceWorker' in navigator) {
-            const registration = await navigator.serviceWorker.getRegistration();
-            if (registration) {
-                await registration.update();
-            }
-        }
-        await clearAppCaches();
-        alert('Checked for updates and cleared cached app files. Reloading now.');
-    } catch (error) {
-        console.warn('Update check failed:', error);
-        alert('Unable to complete update check. Reloading anyway.');
-    }
-    window.location.reload();
-}
+// "Check for Update" / "Update Available" is handled by the update manager in
+// index.html (cache-first, user-controlled). No forced cache-clear or reload here.
 
 function applyFontSize(size) {
     const clamped = Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, size));
@@ -674,7 +588,6 @@ if (needsIOSFallback) {
         'ios-menu-import-set': async () => { closeMenu(); if (await promptSaveCurrentSet()) importSetInput.click(); },
         'ios-menu-share-set-link': async () => { closeMenu(); await shareCurrentSetAsLink(); },
         'ios-menu-share-set-file': async () => { closeMenu(); await shareCurrentSetAsFile(); },
-        'ios-menu-check-update': async (event) => { event.preventDefault(); closeMenu(); await runUpdateCheck(); },
     };
 
     for (const [id, handler] of Object.entries(iosButtonMap)) {
