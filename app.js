@@ -1,5 +1,5 @@
-import { parseChordPro } from './parser.js?v=20261004T1';
-import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20261004T1';
+import { parseChordPro } from './parser.js?v=20261016T1';
+import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20261016T1';
 import {
     addSong, getSong, getAllSongs, deleteSong,
     getSongState, saveSongState,
@@ -7,9 +7,9 @@ import {
     exportLibrary, importLibrary,
     exportSetlist, importSetlist,
     getDefaultLibrary, getAllLibraries, getLibrary, addLibrary, renameLibrary, deleteLibrary
-} from './db.js?v=20261004T1';
+} from './db.js?v=20261016T1';
 
-const APP_BUILD_ID = '20261004T1';
+const APP_BUILD_ID = '20261016T1';
 const SHELL_BUILD_ID = window.__STAGECHORD_BUILD_ID__ || null;
 const FORCED_REFRESH_KEY = 'stagechord_forced_refresh_build';
 
