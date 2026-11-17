@@ -1,0 +1,79 @@
+name: Deploy
+
+# Publishing a GitHub release deploys it: run the tests, build dist/ stamped
+# with the release tag, and upload it to the web host over FTPS.
+# To redeploy an existing release: Actions > Deploy > Run workflow, and pick
+# the release TAG (not a branch) under "Use workflow from".
+#
+# Repo secrets (Settings > Secrets and variables > Actions):
+#   FTP_HOST, FTP_USERNAME, FTP_PASSWORD   required
+#   FTP_REMOTE_DIR                         optional, default "." (the FTP account's home)
+# Repo variable (same page, Variables tab):
+#   APP_URL   optional, e.g. https://example.com/stagechord/ — checks the live version after upload
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    if: github.ref_type == 'tag'
+    uses: ./.github/workflows/tests.yml
+
+  deploy:
+    needs: tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build dist/ for ${{ github.ref_name }}
+        run: node scripts/build-deploy.cjs "${{ github.ref_name }}"
+
+      - name: Install lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
+      # service-worker.js goes last: installed apps only offer "Update Available"
+      # once it changes, and by then every other file is already in place.
+      - name: Upload over FTPS
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_REMOTE_DIR: ${{ secrets.FTP_REMOTE_DIR || '.' }}
+        run: |
+          if [ -z "$FTP_HOST" ] || [ -z "$FTP_USERNAME" ] || [ -z "$LFTP_PASSWORD" ]; then
+            echo "::error::FTP_HOST, FTP_USERNAME and FTP_PASSWORD secrets must be set"; exit 1
+          fi
+          lftp --env-password -u "$FTP_USERNAME" "$FTP_HOST" <<EOF
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate true
+          set net:max-retries 3
+          set net:timeout 30
+          set cmd:fail-exit true
+          cd "$FTP_REMOTE_DIR"
+          mirror --reverse --verbose --no-perms --exclude-glob service-worker.js dist/ ./
+          put dist/service-worker.js -o service-worker.js
+          bye
+          EOF
+
+      - name: Check the live version
+        if: vars.APP_URL != ''
+        run: |
+          expected="sv-${GITHUB_REF_NAME#v}"
+          live=$(curl -fsSL "${{ vars.APP_URL }}service-worker.js?nocache=$(date +%s)" | grep -o "CACHE_VERSION = '[^']*'" || true)
+          echo "Live: $live  Expected: $expected"
+          case "$live" in *"'$expected'"*) echo "Deployed $expected";; *) echo "::error::Live service-worker.js is not $expected (a server cache may still be serving the old one)"; exit 1;; esac
