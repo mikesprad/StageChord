@@ -54,23 +54,78 @@ The end-to-end tests start their own local server (`tests/e2e/serve.mjs`) and ru
 
 Both suites run in GitHub Actions on every pull request and on pushes to `main` (`.github/workflows/tests.yml`). If the end-to-end tests fail, the `playwright-report` artifact on the run has the HTML report and a trace of each failed test (open it with `npx playwright show-trace`).
 
-## Deployment
-
-Copy the following files/folders to your web server root (no build step required):
+### Running the app locally
 
 ```
-index.html
-help.html
-app.js
-db.js
-parser.js
-stave.js
-styles.css
-manifest.json
-service-worker.js
-vexflow.bundle.js
-icons/
-songlibs/
+node tests/e2e/serve.mjs     # then open http://localhost:4173/index.html
 ```
 
-Serve over HTTPS for PWA install and service worker support. All data is stored in the browser's IndexedDB — nothing is sent to the server.
+Any static file server works, since there's no build step. The service worker caches the app, so after editing files do a hard reload, or tick "Bypass for network" (DevTools → Application → Service workers).
+
+## Working together
+
+Changes are infrequent (roughly monthly, one person at a time), so the process is deliberately light:
+
+1. **Branch, then open a PR to `main`, for every change.** CI runs the old-browser check, unit tests and end-to-end tests. Merge when it's green. Ask the other person to look first if the change touches storage (`db.js` and the fallback in `index.html`), the service worker, or old-device support.
+2. **Don't bump version numbers in a PR.** `CACHE_VERSION` and the `?v=` build IDs in the repo are dev values. The release stamps the real version (see below), so there's nothing to conflict over.
+3. **`main` should always be safe to release.**
+
+## Releasing and deploying
+
+**To ship, ask Claude to "ship it", or run this yourself** (needs the GitHub CLI, `gh`, logged in):
+
+```
+git checkout main && git pull
+npm run release -- 1.2        # next version number; earlier releases were 1.0 and 1.1
+```
+
+`scripts/release.cjs` checks that `main` is clean, pushed and passing CI, and that the version is new. It then creates the GitHub release, with notes generated from the merged PRs, and follows the deploy until it's live. Nobody edits version numbers by hand.
+
+Creating the release triggers the **Deploy** workflow (`.github/workflows/deploy.yml`), which:
+
+1. runs the full test suite on the tagged code (a failing release isn't uploaded);
+2. builds `dist/` with `scripts/build-deploy.cjs`, a copy of the deploy files stamped with the tag (`?v=1.2`, `CACHE_VERSION = 'sv-1.2'`);
+3. uploads `dist/` over FTPS, with `service-worker.js` last;
+4. if the `APP_URL` repo variable is set, checks that the live `service-worker.js` reports the new version.
+
+The release notes are the changelog. A release's tag is exactly what's live.
+
+To **redeploy** a release: Actions → Deploy → *Run workflow*, and choose the release **tag** (not a branch) under "Use workflow from". To **roll back**, redeploy an older tag. It gets a different cache version, so devices are offered it as an update.
+
+**Setup (once):** repo Settings → Secrets and variables → Actions:
+- Secrets: `FTP_HOST`, `FTP_USERNAME`, `FTP_PASSWORD`, plus optional `FTP_REMOTE_DIR` (default `.`, the FTP account's home directory, which should be the app's folder).
+- Variable: `APP_URL`, the app's public URL ending in `/`.
+
+If the upload fails with a certificate error, set `FTP_HOST` to the server's own hostname (the one the host's control panel shows for FTP), not your domain.
+
+**Emergency manual deploy:** `node scripts/build-deploy.cjs 1.2.1`, then upload the contents of `dist/` with `service-worker.js` last. Use a version number that hasn't been used before.
+
+### How updates reach devices
+
+The app is **cache-first**: it always opens instantly from the version installed on the device, even offline or on bad venue wifi, and never waits on the network. A new deploy downloads quietly in the background. The device then shows a dot on the menu button and an **Update Available** item, and the new version applies only when the user taps it. **Nothing may ever auto-update or auto-reload**, because it could happen mid-song on stage.
+
+A new `CACHE_VERSION` is what triggers the update offer, which is why every release must have a new version.
+
+## How it works
+
+| File | Role |
+|---|---|
+| `index.html` | App shell; inline script with the service-worker update manager and a **non-module fallback** that can still import bundles/sets if `app.js` fails to load |
+| `app.js` | The app: rendering, transposing, editing, sets, libraries, menus |
+| `parser.js` | ChordPro parsing (shared with the tests) |
+| `db.js` | IndexedDB storage |
+| `stave.js` | Stave notation (loads `vexflow.bundle.js` on demand) |
+| `service-worker.js` | Offline cache and update staging; `APP_ASSETS` is the list of files cached |
+| `help.html`, `songlibs/` | Songs & Help page and the downloadable song bundles |
+
+**Data** (IndexedDB, per device, never sent anywhere):
+- **libraries**: songs and sets belong to one library (e.g. Church, Funk Band).
+- **songs**: `filename` and `originalText`, which never changes. Duplicates are detected by a hash of the original text, and imported sets match songs the same way.
+- **songState**: per-song changes: `transpose` (the song's one key across the app), `annotation` (memo), `stave`, and `editedText` (chord/lyric/metadata edits; Reset clears it).
+- **setlists**: ordered song IDs, per library.
+
+**Storage rules:**
+- Changing the schema means bumping `DB_VERSION` in `db.js` and adding a migration there. The fallback in `index.html` opens the same database, so update its `FALLBACK_DB_VERSION` to match.
+- Bundles and shared sets are versioned (`version: 2`). Keep importing older files working.
+
+**Users' data:** everything lives in the browser on that device. **Deleting the iOS home-screen app wipes its library.** If someone's app is stuck, tell them to force-quit and reopen it. Only suggest reinstalling after they've used *Export Bundle* to save their songs.

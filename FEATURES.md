@@ -13,10 +13,10 @@ The full implementation notes are preserved in `IMPLEMENTED_FEATURE_DETAILS.md`.
 - Packaged Song Library: bundle import support for offline onboarding via Songs & Help page.
 - Quick UI Improvements: cleaner button layout, edit hints, tempo flash, and usability refinements.
 - Older iPad / iOS compatibility fallback for the Manage menu.
-- Older iPad / iOS compatibility hardening: Safari 15-safe parsing, desktop-mode iPad detection, and non-module fallback import support for bundle and set files.
+- Older iPad / iOS compatibility hardening: iOS 12 / Safari 12-safe code (enforced by `npm run check:old-browsers`), desktop-mode iPad detection, and non-module fallback import support for bundle and set files.
 - Font size controls for both lyrics and chords with alignment preserved.
 - Reorder Set replaces Song Order and includes remove-song controls.
-- Check for Update menu item that forces cache refresh and reloads the app without clearing IndexedDB.
+- User-controlled updates: the app always opens from the installed version (cache-first); a new version downloads in the background and shows as "Update Available", applying only when the user taps it. Never auto-reloads.
 - Android tempo flash now validates BPM values for stability.
 - Multi-Library support: separate song/set contexts (e.g. Church, Funk Band) with Switch Library, Manage Libraries, and per-library bundle export/import. Songs and sets are library-scoped. Existing data migrated to Default library on upgrade (IndexedDB v2).
 
