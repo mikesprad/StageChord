@@ -20,6 +20,13 @@ Mobile-friendly ChordPro viewer and setlist manager. Runs entirely in the browse
 - If a feature can't work on a device, the rest of the app must still work: feature-detect, wrap risky calls in `try/catch`, and provide a fallback (see the iOS fallback menu and the non-module import fallback).
 - Run `npm run check:old-browsers` (CI runs it on every PR). It fails on syntax and APIs old Safari can't run. The `ipad-legacy` Playwright project only fakes an old user agent on a modern engine, so it tests the fallback menus but can't catch syntax errors. That's what the check is for.
 
+## ChordPro files
+
+- **Header metadata is hidden.** Every line starting with `{` at the top of the file, up to the first lyric or section line, counts as metadata and is never shown. That includes a tag missing its `}` and a tag spread over several lines (`{flow: Intro` … `V2 Ch}`). The search for a missing `}` stops at a blank line, a new `{`, a chord line or 12 lines, so a stray `{` can't hide the song. All of this lives in `parser.js` (`classifyLines`), which the renderer and the editors share.
+- **Tags the app uses:** `title`, `key`, `tempo`. Others (`artist`, `flow`, …) are kept and editable but not displayed. If a key appears more than once, the header wins over the body, and the first header value wins.
+- **`{sc-comment: …}`** is StageChord's own tag for a comment under a section heading. It's the only `{…}` line shown in the song.
+- **Edits never change the original text.** The original is kept for de-duplication and set imports. Chord, comment, key, tempo and details edits are stored as the song's edited text, Reset discards them, and bundles and shared sets carry them.
+
 ## Development
 
 ### Prerequisites
