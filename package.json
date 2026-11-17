@@ -7,10 +7,11 @@
   "homepage": "https://github.com/mikesprad/StageChord",
   "scripts": {
     "test": "jest",
+    "check:old-browsers": "node scripts/check-old-browsers.cjs",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed --project=chromium --workers=1",
-    "test:all": "jest && playwright test"
+    "test:all": "npm run check:old-browsers && jest && playwright test"
   },
   "keywords": [
     "chordpro",
@@ -22,7 +23,9 @@
   "license": "MIT",
   "devDependencies": {
     "@babel/core": "^7.0.0",
+    "@babel/parser": "^7.29.13",
     "@babel/preset-env": "^7.0.0",
+    "@babel/traverse": "^7.29.13",
     "@playwright/test": "^1.63.0",
     "babel-jest": "^30.5.2",
     "jest": "^30.5.2"

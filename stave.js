@@ -92,8 +92,14 @@ const CHROMATIC_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'B
 
 let Vex = null;
 
+// VexFlow uses modern syntax that old Safari (iOS 12 / Safari < 13.4) cannot
+// parse. There the import fails, ensureVex() returns null and staves degrade to
+// a message; saved stave data is left untouched.
+const STAVE_UNSUPPORTED_MESSAGE = 'Stave notation needs a newer browser on this device.';
+const VexSafePromise = VexPromise.catch(() => null);
+
 async function ensureVex() {
-    if (!Vex) Vex = await VexPromise;
+    if (!Vex) Vex = await VexSafePromise;
     return Vex;
 }
 
@@ -169,7 +175,12 @@ function buildVfNotes(noteData, StaveNote, Accidental, Dot, BarNote, keyName) {
  */
 export async function renderStave(container, noteData, keyName, timeSig) {
     const isEmpty = !noteData || noteData.length === 0;
-    const { Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, StaveTie, BarNote } = await ensureVex();
+    const vex = await ensureVex();
+    if (!vex) {
+        container.textContent = STAVE_UNSUPPORTED_MESSAGE;
+        return;
+    }
+    const { Renderer, Stave, StaveNote, Voice, Formatter, Beam, Accidental, Dot, StaveTie, BarNote } = vex;
 
     container.innerHTML = '';
     const noteCount = isEmpty ? 0 : noteData.filter(n => !n.barline).length;
@@ -245,11 +256,14 @@ export async function renderStave(container, noteData, keyName, timeSig) {
  * Returns a promise that resolves with noteData array on save, or null on cancel.
  */
 export async function openStaveEditor(existingNoteData, options) {
-    const keyName = options?.keyName || null;
-    const existingTimeSig = options?.timeSig || '4/4';
+    const keyName = (options && options.keyName) || null;
+    const existingTimeSig = (options && options.timeSig) || '4/4';
 
     // Pre-load VexFlow so the preview renders immediately
-    await ensureVex();
+    if (!(await ensureVex())) {
+        alert(STAVE_UNSUPPORTED_MESSAGE);
+        return undefined; // callers treat undefined as "no change"
+    }
 
     return new Promise((resolve) => {
         const overlay = document.createElement('div');

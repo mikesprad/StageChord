@@ -213,18 +213,18 @@ const noteEnharmonics = {
 };
 
 // Map chromatic index (0-11) to the preferred note name in each key
-const enharmonicsByKey = Object.fromEntries(
-    Object.keys(keyAccidentals).map((key) => {
-        const base = flatKeys.has(key) ? [...flatNames] : [...sharpNames];
-        if (key === 'Gb' || key === 'Cb') {
-            base[11] = 'Cb';
-        }
-        if (key === 'Cb') {
-            base[4] = 'Fb';
-        }
-        return [key, base];
-    })
-);
+// (Built with forEach rather than Object.fromEntries, which iOS 12.0 lacks.)
+const enharmonicsByKey = {};
+Object.keys(keyAccidentals).forEach((key) => {
+    const base = flatKeys.has(key) ? [...flatNames] : [...sharpNames];
+    if (key === 'Gb' || key === 'Cb') {
+        base[11] = 'Cb';
+    }
+    if (key === 'Cb') {
+        base[4] = 'Fb';
+    }
+    enharmonicsByKey[key] = base;
+});
 
 function getKeyNameForIndex(chromaIndex) {
     const candidates = Object.keys(keyAccidentals)
@@ -1114,7 +1114,7 @@ function getSectionInlineCommentRange(song, headingRawLineIndex) {
 
     const firstIndex = indexes.length > 0 ? indexes[0] : -1;
     const firstText = firstIndex >= 0
-        ? (parseDirectiveLine(lines[firstIndex])?.value || '')
+        ? ((parseDirectiveLine(lines[firstIndex]) || {}).value || '')
         : '';
 
     return { lines, indexes, firstIndex, firstText };
@@ -1298,7 +1298,7 @@ function renderCurrent() {
     let inferredKey = false;
 
     if (parsed.metadata.key) {
-        const keyNote = parsed.metadata.key.match(/^([A-G][#b]?)/)?.[1] || 'C';
+        const keyNote = (parsed.metadata.key.match(/^([A-G][#b]?)/) || [])[1] || 'C';
         originalKeyIndex = noteEnharmonics[keyNote] !== undefined ? noteEnharmonics[keyNote] : 0;
         originalKeyName = keyNote;
         hasKey = true;
@@ -1306,7 +1306,7 @@ function renderCurrent() {
         for (const lineTokens of parsed.lines) {
             const chordToken = lineTokens.find((token) => token.type === 'chord');
             if (!chordToken) continue;
-            const keyNote = chordToken.value.match(/^([A-G][#b]?)/)?.[1];
+            const keyNote = (chordToken.value.match(/^([A-G][#b]?)/) || [])[1];
             if (keyNote && noteEnharmonics[keyNote] !== undefined) {
                 originalKeyIndex = noteEnharmonics[keyNote];
                 originalKeyName = keyNote;
@@ -2443,7 +2443,7 @@ function setLibraryDoneButtonsVisible(isSetMode) {
 async function applyLibrarySelectionAndClose() {
     const checkboxes = Array.from(librarySongList.querySelectorAll('input[type="checkbox"]'));
     const selectedIds = checkboxes.filter(cb => cb.checked).map(cb => Number(cb.value));
-    const currentSongId = songs[currentIndex]?.songId;
+    const currentSongId = songs[currentIndex] ? songs[currentIndex].songId : undefined;
     const songMap = new Map(songs.map((song) => [song.songId, song]));
     const updatedSongs = [];
 
@@ -2505,7 +2505,8 @@ async function openLibraryBrowser(mode = 'set') {
     librarySongList.innerHTML = '';
     libraryModal.dataset.mode = mode;
     if (libraryModalTitle) {
-        const libName = currentLibraryId ? (await getLibrary(currentLibraryId))?.name : 'Unknown';
+        const lib = currentLibraryId ? await getLibrary(currentLibraryId) : null;
+        const libName = currentLibraryId ? (lib ? lib.name : undefined) : 'Unknown';
         libraryModalTitle.textContent = isManageMode 
             ? `Manage Library (${libName})` 
             : 'Add Songs to Set';
