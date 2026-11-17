@@ -55,13 +55,16 @@ Changes are infrequent (roughly monthly, one person at a time), so the process i
 
 ## Releasing and deploying
 
-**Publishing a GitHub release deploys it.** On GitHub go to Releases → *Draft a new release*, create a new tag such as `1.2` (previous releases were `1.0` and `1.1`), click *Generate release notes*, then *Publish*. Or from a terminal:
+**To ship, ask Claude to "ship it", or run this yourself** (needs the GitHub CLI, `gh`, logged in):
 
 ```
-gh release create 1.2 --generate-notes
+git checkout main && git pull
+npm run release -- 1.2        # next version number; earlier releases were 1.0 and 1.1
 ```
 
-The **Deploy** workflow (`.github/workflows/deploy.yml`) then:
+`scripts/release.cjs` checks that `main` is clean, pushed and passing CI, and that the version is new. It then creates the GitHub release, with notes generated from the merged PRs, and follows the deploy until it's live. Nobody edits version numbers by hand.
+
+Creating the release triggers the **Deploy** workflow (`.github/workflows/deploy.yml`), which:
 
 1. runs the full test suite on the tagged code (a failing release isn't uploaded);
 2. builds `dist/` with `scripts/build-deploy.cjs`, a copy of the deploy files stamped with the tag (`?v=1.2`, `CACHE_VERSION = 'sv-1.2'`);
