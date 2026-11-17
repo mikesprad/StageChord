@@ -1212,3 +1212,74 @@ body.old-ios-menu #menu-panel {
 #ios-menu-content .menu-contact a:active {
   opacity: 0.7;
 }
+/* Song details editor (old-iPad safe: no gap, no min(), plain overlay) */
+#song-details-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1300;
+  background: rgba(0, 0, 0, 0.45);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+#song-details-panel {
+  max-width: 560px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.8rem;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+}
+.song-details-label {
+  display: block;
+  font-size: 0.9rem;
+  margin-bottom: 0.6rem;
+}
+#song-details-panel input[type="text"] {
+  box-sizing: border-box;
+  border: 1px solid #b9b9b9;
+  border-radius: 4px;
+  padding: 0.4rem;
+  font-size: 16px; /* stops iOS zooming on focus */
+}
+#song-details-title {
+  display: block;
+  width: 100%;
+  margin-top: 0.2rem;
+}
+.song-details-row {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  margin-bottom: 0.4rem;
+}
+.song-details-key {
+  width: 30%;
+  margin-right: 0.4rem;
+}
+.song-details-value {
+  -webkit-box-flex: 1;
+  -webkit-flex: 1;
+  flex: 1;
+  min-width: 0;
+  margin-right: 0.4rem;
+}
+.song-details-remove,
+.song-details-add {
+  border: 1px solid #777;
+  border-radius: 4px;
+  background: #fff;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+.inline-comment-editor-buttons button + button {
+  margin-left: 0.5rem;
+}
+.editable-title {
+  cursor: pointer;
+  text-decoration: underline dotted;
+}

@@ -1,4 +1,4 @@
-import { parseChordPro } from './parser.js?v=20261016T2';
+import { parseChordPro, readHeader, writeHeader, classifyLines } from './parser.js?v=20261016T2';
 import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20261016T2';
 import {
     addSong, getSong, getAllSongs, deleteSong,
@@ -1282,12 +1282,10 @@ function renderCurrent() {
     if (currentSongTitle) currentSongTitle.textContent = '';
     if (currentSongKey) currentSongKey.innerHTML = '';
     const parsed = parseChordPro(song.text);
-    const rawLines = song.text.split(/\r?\n/);
+    const lineInfo = classifyLines(song.text);
+    const rawLines = lineInfo.lines;
     const lastSectionAnchors = {};
-    const contentLines = rawLines.filter((line) => {
-        const trimmed = line.trim();
-        return !(trimmed.startsWith('{') && trimmed.endsWith('}'));
-    });
+    const contentLines = rawLines.filter((line, i) => lineInfo.kinds[i] === 'content');
     
     // Get original key and determine transposed key
     let originalKeyIndex = 0; // Default to C
@@ -1329,6 +1327,12 @@ function renderCurrent() {
         }
     } else if (currentSongTitle) {
         currentSongTitle.textContent = song.name.replace(/\.[^.]+$/, '');
+    }
+    if (currentSongTitle) {
+        // In edit mode the title opens the song details editor.
+        currentSongTitle.classList.toggle('editable-title', chordEditMode);
+        currentSongTitle.title = chordEditMode ? 'Edit song name and details' : '';
+        currentSongTitle.onclick = chordEditMode ? () => openSongDetailsEditor(song, true) : null;
     }
 
     if (hasKey) {
@@ -1424,6 +1428,17 @@ function renderCurrent() {
         renderCurrent();
     });
     btnGroup.appendChild(editChordsBtn);
+
+    // Details button — song name and other header metadata (edit mode only)
+    if (chordEditMode) {
+        const detailsBtn = document.createElement('button');
+        detailsBtn.id = 'song-details-btn';
+        detailsBtn.textContent = 'Details';
+        detailsBtn.className = 'annotate-btn';
+        detailsBtn.title = 'Edit song name and details';
+        detailsBtn.addEventListener('click', () => openSongDetailsEditor(song, false));
+        btnGroup.appendChild(detailsBtn);
+    }
 
     // Reset button — only show in edit mode if text differs from original
     if (chordEditMode && song.text !== song.originalText) {
@@ -1543,9 +1558,10 @@ function renderCurrent() {
     let contentLineIndex = 0;
 
     rawLines.forEach((rawLine, rawLineIndex) => {
-        const directive = parseDirectiveLine(rawLine);
-        if (directive) {
-            if (directive.key === INLINE_COMMENT_DIRECTIVE) {
+        if (lineInfo.kinds[rawLineIndex] !== 'content') {
+            // Header metadata and other directives are hidden; only section comments show.
+            const directive = lineInfo.directives[rawLineIndex];
+            if (directive && directive.name === INLINE_COMMENT_DIRECTIVE) {
                 const commentDiv = document.createElement('div');
                 commentDiv.className = 'flow-comment-box';
 
@@ -1767,6 +1783,145 @@ function dismissChordPopup() {
 }
 
 // Save key/tempo from edit input fields into song text
+// Key and tempo have their own inputs in edit mode (key handles transposition),
+// so the details editor leaves them alone.
+const DETAILS_MANAGED_KEYS = ['key', 'tempo'];
+
+// Song name + header metadata editor. Plain DOM overlay (no <dialog>) so it works
+// on old iPads. Changes are stored as an edit (editedText); Reset reverts them.
+function openSongDetailsEditor(song, focusTitle) {
+    const existing = document.getElementById('song-details-overlay');
+    if (existing) existing.remove();
+
+    const header = readHeader(song.text);
+    const entries = header.entries.map((e) => Object.assign({}, e));
+    let titleEntry = null;
+    for (let i = 0; i < entries.length; i++) {
+        if (entries[i].key.toLowerCase() === 'title') { titleEntry = entries[i]; break; }
+    }
+    if (!titleEntry) {
+        titleEntry = { key: 'title', value: '', hasColon: true, isNew: true };
+        entries.unshift(titleEntry);
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'song-details-overlay';
+    const panel = document.createElement('div');
+    panel.id = 'song-details-panel';
+
+    const heading = document.createElement('div');
+    heading.className = 'inline-comment-editor-title';
+    heading.textContent = 'Song details';
+    panel.appendChild(heading);
+
+    const titleLabel = document.createElement('label');
+    titleLabel.className = 'song-details-label';
+    titleLabel.textContent = 'Song name';
+    const titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.id = 'song-details-title';
+    titleInput.value = titleEntry.value || (parseChordPro(song.text).metadata.title ? '' : song.name.replace(/\.[^.]+$/, ''));
+    titleLabel.appendChild(titleInput);
+    panel.appendChild(titleLabel);
+
+    const rowsBox = document.createElement('div');
+    rowsBox.className = 'song-details-rows';
+    panel.appendChild(rowsBox);
+
+    const rows = [];
+    function addRow(entry) {
+        const row = document.createElement('div');
+        row.className = 'song-details-row';
+        const keyInput = document.createElement('input');
+        keyInput.type = 'text';
+        keyInput.className = 'song-details-key';
+        keyInput.placeholder = 'name';
+        keyInput.value = entry.key;
+        keyInput.setAttribute('autocapitalize', 'off');
+        keyInput.setAttribute('autocorrect', 'off');
+        const valueInput = document.createElement('input');
+        valueInput.type = 'text';
+        valueInput.className = 'song-details-value';
+        valueInput.placeholder = 'value';
+        valueInput.value = entry.value;
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'song-details-remove';
+        removeBtn.textContent = '✕';
+        removeBtn.title = 'Remove';
+        const record = { entry: entry, row: row, keyInput: keyInput, valueInput: valueInput, removed: false };
+        removeBtn.addEventListener('click', () => {
+            record.removed = true;
+            if (row.parentNode) row.parentNode.removeChild(row);
+        });
+        row.appendChild(keyInput);
+        row.appendChild(valueInput);
+        row.appendChild(removeBtn);
+        rowsBox.appendChild(row);
+        rows.push(record);
+        return record;
+    }
+
+    entries.forEach((entry) => {
+        if (entry === titleEntry) return;
+        if (DETAILS_MANAGED_KEYS.indexOf(entry.key.toLowerCase()) >= 0) return;
+        addRow(entry);
+    });
+
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'song-details-add';
+    addBtn.textContent = '+ Add detail';
+    addBtn.addEventListener('click', () => {
+        const entry = { key: '', value: '', hasColon: true, isNew: true };
+        entries.push(entry);
+        addRow(entry).keyInput.focus();
+    });
+    panel.appendChild(addBtn);
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'inline-comment-editor-buttons';
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.textContent = 'Save';
+    saveBtn.addEventListener('click', async () => {
+        titleEntry.value = titleInput.value;
+        rows.forEach((r) => {
+            r.entry.key = r.keyInput.value;
+            r.entry.value = r.valueInput.value;
+            r.entry.removed = r.removed;
+        });
+        const next = entries.filter((e) => {
+            if (e.removed) return false;
+            if (e.isNew && !String(e.value || '').trim()) return false;
+            return true;
+        });
+        const nextText = writeHeader(song.text, next);
+        overlay.remove();
+        if (nextText === song.text) return;
+        song.text = nextText;
+        await saveSongStateToDB(song);
+        saveSessionRef();
+        populateSelect();
+        fileSelect.selectedIndex = currentIndex;
+        renderCurrent();
+    });
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', () => overlay.remove());
+    btnRow.appendChild(saveBtn);
+    btnRow.appendChild(cancelBtn);
+    panel.appendChild(btnRow);
+
+    overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) overlay.remove();
+    });
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+    if (focusTitle) titleInput.focus();
+}
+
 function saveEditMetaFields(song) {
     const keyInput = document.getElementById('edit-key-input');
     const tempoInput = document.getElementById('edit-tempo-input');
@@ -1782,8 +1937,15 @@ function saveEditMetaFields(song) {
                 if (displayIndex !== undefined) {
                     const storedIndex = (displayIndex - (song.transpose || 0) + 12) % 12;
                     const storedKeyName = getKeyNameForIndex(storedIndex);
-                    updateSongMetadata(song, 'key', storedKeyName);
-                    changed = true;
+                    // Keep the existing key's spelling and suffix (e.g. "Gm") unless
+                    // the note itself changed; then swap just the note.
+                    const existingKey = parseChordPro(song.text).metadata.key || '';
+                    const existingRootMatch = existingKey.match(/^([A-G][#b]?)/);
+                    const existingRoot = existingRootMatch ? existingRootMatch[1] : '';
+                    if (!existingRoot || noteEnharmonics[existingRoot] !== storedIndex) {
+                        const suffix = existingRoot ? existingKey.slice(existingRoot.length) : '';
+                        if (updateSongMetadata(song, 'key', storedKeyName + suffix)) changed = true;
+                    }
                 }
             }
         }
@@ -1792,15 +1954,10 @@ function saveEditMetaFields(song) {
     if (tempoInput) {
         const val = tempoInput.value.trim();
         if (val && !isNaN(val) && val >= 20 && val <= 300) {
-            updateSongMetadata(song, 'tempo', val);
-            changed = true;
+            if (updateSongMetadata(song, 'tempo', val)) changed = true;
         } else if (!val) {
             // If cleared, remove tempo directive
-            const parsed = parseChordPro(song.text);
-            if (parsed.metadata.tempo) {
-                removeSongMetadata(song, 'tempo');
-                changed = true;
-            }
+            if (removeSongMetadata(song, 'tempo')) changed = true;
         }
     }
 
@@ -1810,38 +1967,43 @@ function saveEditMetaFields(song) {
 }
 
 // Update or insert a metadata directive in the song text (e.g. {key: G}, {tempo: 120})
+// Set a header metadata value ({key: G}). Returns true if the text changed.
+// Only the header block is rewritten; unchanged lines keep their exact text.
 function updateSongMetadata(song, directive, value) {
-    const lines = song.text.split(/\r?\n/);
-    const regex = new RegExp(`^\\{${directive}:\\s*.+?\\}$`, 'i');
-    let found = false;
-    for (let i = 0; i < lines.length; i++) {
-        if (regex.test(lines[i].trim())) {
-            lines[i] = `{${directive}: ${value}}`;
-            found = true;
-            break;
-        }
+    const header = readHeader(song.text);
+    const name = directive.toLowerCase();
+    const want = String(value).trim();
+    let entry = null;
+    for (let i = 0; i < header.entries.length; i++) {
+        if (header.entries[i].key.toLowerCase() === name) { entry = header.entries[i]; break; }
     }
-    if (!found) {
-        // Insert after last metadata line at top, or at very top
-        let insertAt = 0;
-        for (let i = 0; i < lines.length; i++) {
-            const t = lines[i].trim();
-            if (t.startsWith('{') && t.endsWith('}')) {
-                insertAt = i + 1;
-            } else {
-                break;
-            }
-        }
-        lines.splice(insertAt, 0, `{${directive}: ${value}}`);
+    if (entry) {
+        if (entry.value === want) return false;
+        entry.value = want;
+    } else {
+        header.entries.push({ key: directive, value: want, hasColon: true });
     }
-    song.text = lines.join('\n');
+    const next = writeHeader(song.text, header.entries);
+    if (next === song.text) return false;
+    song.text = next;
+    return true;
 }
 
-// Remove a metadata directive from the song text
+// Remove a metadata directive (header entries and any `{key: ...}` lines further
+// down). Returns true if the text changed.
 function removeSongMetadata(song, directive) {
-    const lines = song.text.split(/\r?\n/);
-    const regex = new RegExp(`^\\{${directive}:\\s*.+?\\}$`, 'i');
-    song.text = lines.filter(l => !regex.test(l.trim())).join('\n');
+    const name = directive.toLowerCase();
+    const header = readHeader(song.text);
+    const kept = header.entries.filter((e) => e.key.toLowerCase() !== name);
+    let text = kept.length === header.entries.length ? song.text : writeHeader(song.text, kept);
+    const info = classifyLines(text);
+    const lines = info.lines.filter((line, i) => !(info.kinds[i] === 'directive' && info.directives[i].name === name));
+    if (lines.length !== info.lines.length) {
+        text = lines.join(info.header.eol);
+    }
+    if (text === song.text) return false;
+    song.text = text;
+    return true;
 }
 
 function extractSongChords(parsed, transpose, keyName) {
@@ -1866,11 +2028,11 @@ function modifySongText(song, lineIndex, chordIdx, action, newChordValue, textOf
     const lines = song.text.split(/\r?\n/);
 
     // Map lineIndex (content lines, excluding metadata) to actual line index
+    const kinds = classifyLines(song.text).kinds;
     let contentLineCount = -1;
     let actualLineIdx = -1;
     for (let i = 0; i < lines.length; i++) {
-        const trimmed = lines[i].trim();
-        if (trimmed.startsWith('{') && trimmed.endsWith('}')) continue;
+        if (kinds[i] !== 'content') continue;
         contentLineCount++;
         if (contentLineCount === lineIndex) {
             actualLineIdx = i;
@@ -2497,11 +2659,17 @@ async function onLibraryDoneClick() {
 async function openLibraryBrowser(mode = 'set') {
     const isManageMode = mode === 'manage';
     const allSongs = await getAllSongs(currentLibraryId);
-    allSongs.sort((a, b) => {
-        const titleA = parseChordPro(a.originalText).metadata.title || a.filename.replace(/\.[^.]+$/, '');
-        const titleB = parseChordPro(b.originalText).metadata.title || b.filename.replace(/\.[^.]+$/, '');
-        return titleA.localeCompare(titleB);
-    });
+    // Titles come from the edited text when the song has been edited (e.g. renamed).
+    const songTitles = {};
+    await Promise.all(allSongs.map(async (song) => {
+        let text = song.originalText;
+        try {
+            const state = await getSongState(song.id);
+            if (state && state.editedText) text = state.editedText;
+        } catch (_) {}
+        songTitles[song.id] = parseChordPro(text).metadata.title || song.filename.replace(/\.[^.]+$/, '');
+    }));
+    allSongs.sort((a, b) => songTitles[a.id].localeCompare(songTitles[b.id]));
     librarySongList.innerHTML = '';
     libraryModal.dataset.mode = mode;
     if (libraryModalTitle) {
@@ -2523,8 +2691,7 @@ async function openLibraryBrowser(mode = 'set') {
     }
 
     allSongs.forEach((song) => {
-        const parsed = parseChordPro(song.originalText);
-        const title = parsed.metadata.title || song.filename.replace(/\.[^.]+$/, '');
+        const title = songTitles[song.id];
 
         const item = document.createElement('div');
         item.className = 'library-song-item';
