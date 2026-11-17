@@ -132,6 +132,10 @@ test('opening a shared link updates the key and is not re-imported on reload', a
 });
 
 test.describe('sharing between two devices', () => {
+    // Each test drives two browsers; under a full parallel WebKit run that can
+    // exceed the default 30s, so give these tests the "slow" (3x) budget.
+    test.slow();
+
     // Sender: saved set with SONG_ONE moved to Bb and SONG_TWO in its original key.
     async function senderSet(page) {
         await openApp(page);

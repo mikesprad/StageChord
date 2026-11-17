@@ -29,6 +29,9 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
 
+      - name: Old-browser check (iOS 12 / Safari 12)
+        run: npm run check:old-browsers
+
       - name: Unit tests
         run: npm test
 
