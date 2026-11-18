@@ -18,6 +18,8 @@ The full implementation notes are preserved in `IMPLEMENTED_FEATURE_DETAILS.md`.
 - Reorder Set replaces Song Order and includes remove-song controls.
 - User-controlled updates: the app always opens from the installed version (cache-first); a new version downloads in the background and shows as "Update Available", applying only when the user taps it. Never auto-reloads.
 - Android tempo flash now validates BPM values for stability.
+- Song info (1.2–1.5): the ChordPro header (every `{...}` line at the top, including unclosed or multi-line tags) is hidden when the song is shown. "Edit info" on the title row edits the song name and info lines (artist, etc.). Changes are saved as the song's edits; the original file is kept.
+- Release process (1.2–1.5): `npm run release -- X.Y` (or ask Claude to "ship it") publishes a GitHub release, which deploys over FTPS. The server no longer caches service-worker.js or HTML, so devices see updates.
 - Multi-Library support: separate song/set contexts (e.g. Church, Funk Band) with Switch Library, Manage Libraries, and per-library bundle export/import. Songs and sets are library-scoped. Existing data migrated to Default library on upgrade (IndexedDB v2).
 
 ## Potential Features
@@ -30,6 +32,11 @@ The full implementation notes are preserved in `IMPLEMENTED_FEATURE_DETAILS.md`.
 - Display how far the current key is from the original key.
 - Copy or move songs between libraries in bulk.
 - Export all libraries in one file.
+
+## Parked for later
+- **Export / email ChordPro:** download a song, or a whole set, as `.chopro` files (with edits and song info applied) and email them. Editing already stores the changes; this is the "get them out" half.
+- **Test site:** deploy to a test copy before going live. Caveat: a path like `spradbery.com/stagechord/test` is the same origin as the live app, so on a given device it would share (and could damage) the live song library. Use a subdomain whose docroot is a folder inside the FTP home instead, or give the test build a different database name.
+- **GitHub Actions housekeeping:** move `actions/checkout`, `actions/setup-node`, `actions/cache` and `actions/upload-artifact` to versions that run on Node 24. CI shows deprecation warnings for these now, but they still work. Also watch for `ubuntu-latest` moving to Ubuntu 26.
 
 ## Suggested Priorities
 1. Display key distance from original

@@ -5,11 +5,14 @@ Mobile-friendly ChordPro viewer and setlist manager. Runs entirely in the browse
 ## Features
 - Display ChordPro songs with chords above lyrics
 - Transpose, add stave notation, edit chords and lyrics
+- Edit a song's name and info (artist, etc.). The info lines at the top of a ChordPro file are hidden when a song is displayed
 - Organise songs into **Libraries** (e.g. Church, Funk Band)
 - Build and save **Sets** (setlists) per library
 - Share sets as a link or file
 - Import **Bundles** of songs from the Songs & Help page
 - Installable as a PWA on iOS and Android
+
+Done features, ideas and parked work are listed in [FEATURES.md](FEATURES.md).
 
 ## Guiding principle: it must work on rubbish old devices
 
