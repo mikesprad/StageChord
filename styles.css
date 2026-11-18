@@ -1279,7 +1279,7 @@ body.old-ios-menu #menu-panel {
 .inline-comment-editor-buttons button + button {
   margin-left: 0.5rem;
 }
-.editable-title {
-  cursor: pointer;
-  text-decoration: underline dotted;
+/* End of the title/key/tempo row (wraps under them on narrow screens). */
+#edit-info-btn {
+  margin-left: auto;
 }

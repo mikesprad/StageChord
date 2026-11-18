@@ -1328,13 +1328,6 @@ function renderCurrent() {
     } else if (currentSongTitle) {
         currentSongTitle.textContent = song.name.replace(/\.[^.]+$/, '');
     }
-    if (currentSongTitle) {
-        // In edit mode the title opens the song details editor.
-        currentSongTitle.classList.toggle('editable-title', chordEditMode);
-        currentSongTitle.title = chordEditMode ? 'Edit song name and details' : '';
-        currentSongTitle.onclick = chordEditMode ? () => openSongDetailsEditor(song, true) : null;
-    }
-
     if (hasKey) {
         const keyLabel = inferredKey ? 'Key (inferred): ' : 'Key: ';
         if (currentSongKey) {
@@ -1395,6 +1388,23 @@ function renderCurrent() {
         songBtnRow.innerHTML = '';
         songBtnRow.appendChild(btnGroup);
     }
+
+    // "Edit info" (song name, artist, flow…) — always visible, at the end of the
+    // title/key/tempo row. Created here rather than in index.html so it never
+    // shows as a dead button if the app falls back on an old device.
+    if (songMetaRow && songBtnRow) {
+        let editInfoBtn = document.getElementById('edit-info-btn');
+        if (!editInfoBtn) {
+            editInfoBtn = document.createElement('button');
+            editInfoBtn.id = 'edit-info-btn';
+            editInfoBtn.type = 'button';
+            editInfoBtn.className = 'annotate-btn';
+            editInfoBtn.textContent = 'Edit info';
+            editInfoBtn.title = 'Edit song name, artist and other song info';
+            songMetaRow.insertBefore(editInfoBtn, songBtnRow);
+        }
+        editInfoBtn.onclick = () => openSongDetailsEditor(song, true);
+    }
     staveBtn.addEventListener('click', async () => {
         const editorNotes = song.stave && song.transpose
             ? transposeStaveNotes(song.stave, song.transpose, transposedKeyName)
@@ -1413,9 +1423,9 @@ function renderCurrent() {
 
     // Edit button (chords, key, tempo)
     const editChordsBtn = document.createElement('button');
-    editChordsBtn.textContent = chordEditMode ? '✓ Done' : '✎ Edit';
+    editChordsBtn.textContent = chordEditMode ? '✓ Done' : '✎ Edit song';
     editChordsBtn.className = 'annotate-btn' + (chordEditMode ? ' active-edit' : '');
-    editChordsBtn.title = 'Edit chords, key and tempo';
+    editChordsBtn.title = 'Edit chords, lyrics, key and tempo';
     editChordsBtn.addEventListener('click', () => {
         // If leaving edit mode, save key/tempo from input fields
         if (chordEditMode) {
@@ -1428,17 +1438,6 @@ function renderCurrent() {
         renderCurrent();
     });
     btnGroup.appendChild(editChordsBtn);
-
-    // Details button — song name and other header metadata (edit mode only)
-    if (chordEditMode) {
-        const detailsBtn = document.createElement('button');
-        detailsBtn.id = 'song-details-btn';
-        detailsBtn.textContent = 'Details';
-        detailsBtn.className = 'annotate-btn';
-        detailsBtn.title = 'Edit song name and details';
-        detailsBtn.addEventListener('click', () => openSongDetailsEditor(song, false));
-        btnGroup.appendChild(detailsBtn);
-    }
 
     // Reset button — only show in edit mode if text differs from original
     if (chordEditMode && song.text !== song.originalText) {
@@ -1811,7 +1810,7 @@ function openSongDetailsEditor(song, focusTitle) {
 
     const heading = document.createElement('div');
     heading.className = 'inline-comment-editor-title';
-    heading.textContent = 'Song details';
+    heading.textContent = 'Song info';
     panel.appendChild(heading);
 
     const titleLabel = document.createElement('label');
@@ -1835,14 +1834,14 @@ function openSongDetailsEditor(song, focusTitle) {
         const keyInput = document.createElement('input');
         keyInput.type = 'text';
         keyInput.className = 'song-details-key';
-        keyInput.placeholder = 'name';
+        keyInput.placeholder = 'e.g. artist';
         keyInput.value = entry.key;
         keyInput.setAttribute('autocapitalize', 'off');
         keyInput.setAttribute('autocorrect', 'off');
         const valueInput = document.createElement('input');
         valueInput.type = 'text';
         valueInput.className = 'song-details-value';
-        valueInput.placeholder = 'value';
+        valueInput.placeholder = 'e.g. Elevation Worship';
         valueInput.value = entry.value;
         const removeBtn = document.createElement('button');
         removeBtn.type = 'button';
@@ -1871,7 +1870,7 @@ function openSongDetailsEditor(song, focusTitle) {
     const addBtn = document.createElement('button');
     addBtn.type = 'button';
     addBtn.className = 'song-details-add';
-    addBtn.textContent = '+ Add detail';
+    addBtn.textContent = '+ Add song info';
     addBtn.addEventListener('click', () => {
         const entry = { key: '', value: '', hasColon: true, isNew: true };
         entries.push(entry);
