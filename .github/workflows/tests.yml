@@ -4,8 +4,6 @@ on:
   pull_request:
   push:
     branches: [main]
-  # Lets deploy.yml run the full test suite before uploading a release.
-  workflow_call:
 
 permissions:
   contents: read
@@ -28,8 +26,22 @@ jobs:
 
       - run: npm ci
 
+      # Keep the downloaded test browsers between runs; downloading them can
+      # take 20+ minutes on a slow day at GitHub.
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Install Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium webkit
+
+      - name: Install Playwright system libraries
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium webkit
 
       - name: Old-browser check (iOS 12 / Safari 12)
         run: npm run check:old-browsers

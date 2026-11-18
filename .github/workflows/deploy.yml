@@ -1,6 +1,6 @@
 name: Deploy
 
-# Publishing a GitHub release deploys it: run the tests, build dist/ stamped
+# Publishing a GitHub release deploys it: run the quick checks, build dist/ stamped
 # with the release tag, and upload it to the web host over FTPS.
 # To redeploy an existing release: Actions > Deploy > Run workflow, and pick
 # the release TAG (not a branch) under "Use workflow from".
@@ -24,12 +24,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  tests:
+  # Quick checks only (seconds). The full browser tests already ran on main;
+  # npm run release refuses to ship a commit whose CI didn't pass.
+  checks:
     if: github.ref_type == 'tag'
-    uses: ./.github/workflows/tests.yml
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Old-browser check (iOS 12 / Safari 12)
+        run: npm run check:old-browsers
+
+      - name: Unit tests
+        run: npm test
 
   deploy:
-    needs: tests
+    needs: checks
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

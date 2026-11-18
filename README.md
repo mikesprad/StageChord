@@ -66,9 +66,10 @@ Any static file server works, since there's no build step. The service worker ca
 
 Changes are infrequent (roughly monthly, one person at a time), so the process is deliberately light:
 
-1. **Branch, then open a PR to `main`, for every change.** CI runs the old-browser check, unit tests and end-to-end tests. Merge when it's green. Ask the other person to look first if the change touches storage (`db.js` and the fallback in `index.html`), the service worker, or old-device support.
-2. **Don't bump version numbers in a PR.** `CACHE_VERSION` and the `?v=` build IDs in the repo are dev values. The release stamps the real version (see below), so there's nothing to conflict over.
-3. **`main` should always be safe to release.**
+1. **Small cosmetic tweaks (spacing, wording, colours): the quick path.** Make the change, look at it in a browser locally (see "Running the app locally"), push straight to `main`, and ship. No new tests and no PR needed. CI still runs on the push. When asking Claude, say "quick tweak" and start a fresh session, which keeps it fast and cheap.
+2. **Anything else: branch, then open a PR to `main`.** CI runs the old-browser check, unit tests and end-to-end tests. Merge when it's green. Ask the other person to look first if the change touches storage (`db.js` and the fallback in `index.html`), the service worker, or old-device support.
+3. **Don't bump version numbers in a change.** `CACHE_VERSION` and the `?v=` build IDs in the repo are dev values. The release stamps the real version (see below), so there's nothing to conflict over.
+4. **`main` should always be safe to release.**
 
 ## Releasing and deploying
 
@@ -83,7 +84,7 @@ npm run release -- 1.2        # next version number; earlier releases were 1.0 a
 
 Creating the release triggers the **Deploy** workflow (`.github/workflows/deploy.yml`), which:
 
-1. runs the full test suite on the tagged code (a failing release isn't uploaded);
+1. runs the quick checks (old-browser check and unit tests, a few seconds). The full browser tests already passed on `main`, and the release script won't ship a commit unless they did;
 2. builds `dist/` with `scripts/build-deploy.cjs`, a copy of the deploy files stamped with the tag (`?v=1.2`, `CACHE_VERSION = 'sv-1.2'`);
 3. uploads `dist/` over FTPS, with `service-worker.js` last;
 4. if the `APP_URL` repo variable is set, checks that the live `service-worker.js` reports the new version.
