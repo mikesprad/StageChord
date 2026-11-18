@@ -1279,7 +1279,9 @@ body.old-ios-menu #menu-panel {
 .inline-comment-editor-buttons button + button {
   margin-left: 0.5rem;
 }
-/* Follows the key/tempo on the title row, with a little breathing space. */
-#edit-info-btn {
-  margin-left: 0.75rem;
+/* A little breathing space before "Edit info". It sits on the right of the
+   key/tempo rather than on the button, so if "Edit info" wraps to the next
+   line it starts flush left, in line with +Memo below. */
+#current-song-key:not(:empty) {
+  margin-right: 0.75rem;
 }

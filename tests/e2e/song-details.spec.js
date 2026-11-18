@@ -62,3 +62,23 @@ test('song header layout: info button on the title row, song buttons below', asy
     await expect(page.locator('#song-btn-row button')).toHaveText(['+Memo', '+Stave', '✎ Edit song', 'A-', 'A+']);
     expect(await top('#song-btn-row')).toBeGreaterThan(await top('#current-song-title') + 10);
 });
+
+test('"Edit info" wraps flush left, in line with +Memo, on a narrow screen', async ({ page }) => {
+    // Font widths differ between machines, so check the rule across a range of
+    // widths: "Edit info" either sits on the same line as the key/tempo before
+    // it, or it starts its own line flush left with +Memo, never indented.
+    await openApp(page);
+    await addSongsToLibrary(page, [SONG]);
+    let sawOwnLine = false;
+    for (let width = 260; width <= 700; width += 20) {
+        await page.setViewportSize({ width, height: 700 });
+        const info = await page.getByRole('button', { name: 'Edit info' }).boundingBox();
+        const key = await page.locator('#current-song-key').boundingBox();
+        const memo = await page.getByRole('button', { name: '+Memo' }).boundingBox();
+        const sameLineAsKey = Math.abs(info.y + info.height / 2 - (key.y + key.height / 2)) < 10;
+        if (sameLineAsKey && info.x > key.x) continue;
+        sawOwnLine = true;
+        expect(Math.abs(info.x - memo.x), `at ${width}px`).toBeLessThan(1);
+    }
+    expect(sawOwnLine).toBe(true);
+});
