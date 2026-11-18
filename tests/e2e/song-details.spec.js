@@ -62,3 +62,14 @@ test('song header layout: info button on the title row, song buttons below', asy
     await expect(page.locator('#song-btn-row button')).toHaveText(['+Memo', '+Stave', '✎ Edit song', 'A-', 'A+']);
     expect(await top('#song-btn-row')).toBeGreaterThan(await top('#current-song-title') + 10);
 });
+
+test('"Edit info" wraps flush left, in line with +Memo, on a narrow screen', async ({ page }) => {
+    await page.setViewportSize({ width: 340, height: 700 });
+    await openApp(page);
+    await addSongsToLibrary(page, [SONG]);
+    const info = await page.getByRole('button', { name: 'Edit info' }).boundingBox();
+    const title = await page.locator('#current-song-title').boundingBox();
+    const memo = await page.getByRole('button', { name: '+Memo' }).boundingBox();
+    expect(info.y).toBeGreaterThan(title.y + 10); // it wrapped at this width
+    expect(Math.abs(info.x - memo.x)).toBeLessThan(1);
+});
