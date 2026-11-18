@@ -1,0 +1,13 @@
+# StageChord deploy: this file is uploaded by the Deploy workflow from
+# deploy/htaccess in the repo. Edit it there, not on the server.
+#
+# The app caches itself (service worker), so browsers must always re-check
+# these few files with the server; otherwise the host's 30-day caching hides
+# new releases ("up to date" when it isn't). Everything else keeps the host's
+# normal caching; versioned files (?v=...) change URL on every release anyway.
+<IfModule mod_headers.c>
+  <FilesMatch "^(service-worker\.js|index\.html|help\.html|manifest\.json)$">
+    Header set Cache-Control "no-cache"
+    Header unset Expires
+  </FilesMatch>
+</IfModule>

@@ -57,6 +57,24 @@ jobs:
           if [ -z "$FTP_HOST" ] || [ -z "$FTP_USERNAME" ] || [ -z "$LFTP_PASSWORD" ]; then
             echo "::error::FTP_HOST, FTP_USERNAME and FTP_PASSWORD secrets must be set"; exit 1
           fi
+          # Never overwrite an .htaccess someone made by hand: only replace one
+          # that's missing or was uploaded by this workflow.
+          lftp --env-password -u "$FTP_USERNAME" "$FTP_HOST" <<EOF || true
+          set ftp:ssl-force true
+          set ftp:ssl-protect-data true
+          set ssl:verify-certificate true
+          set net:max-retries 2
+          set net:timeout 30
+          cd "$FTP_REMOTE_DIR"
+          get .htaccess -o remote.htaccess
+          bye
+          EOF
+          if [ -s remote.htaccess ] && ! grep -q "StageChord deploy" remote.htaccess; then
+            echo "::warning::The server already has its own .htaccess, so it was left alone. Merge deploy/htaccess into it by hand to fix update caching."
+            rm dist/.htaccess
+          fi
+          rm -f remote.htaccess
+
           lftp --env-password -u "$FTP_USERNAME" "$FTP_HOST" <<EOF
           set ftp:ssl-force true
           set ftp:ssl-protect-data true
@@ -77,3 +95,7 @@ jobs:
           live=$(curl -fsSL "${{ vars.APP_URL }}service-worker.js?nocache=$(date +%s)" | grep -o "CACHE_VERSION = '[^']*'" || true)
           echo "Live: $live  Expected: $expected"
           case "$live" in *"'$expected'"*) echo "Deployed $expected";; *) echo "::error::Live service-worker.js is not $expected (a server cache may still be serving the old one)"; exit 1;; esac
+          # Devices only notice new releases if the server tells browsers not to keep service-worker.js.
+          cc=$(curl -fsSI "${{ vars.APP_URL }}service-worker.js" | grep -i '^cache-control:' || true)
+          echo "service-worker.js $cc"
+          case "$cc" in *no-cache*) ;; *) echo "::warning::service-worker.js is not served with no-cache, so some devices may not see updates promptly. See deploy/htaccess.";; esac

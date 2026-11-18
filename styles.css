@@ -1279,7 +1279,7 @@ body.old-ios-menu #menu-panel {
 .inline-comment-editor-buttons button + button {
   margin-left: 0.5rem;
 }
-/* End of the title/key/tempo row (wraps under them on narrow screens). */
+/* Follows the key/tempo on the title row, with a little breathing space. */
 #edit-info-btn {
-  margin-left: auto;
+  margin-left: 0.75rem;
 }

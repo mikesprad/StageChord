@@ -106,6 +106,11 @@ The app is **cache-first**: it always opens instantly from the version installed
 
 A new `CACHE_VERSION` is what triggers the update offer, which is why every release must have a new version.
 
+**Server caching matters.** The host tells browsers to keep files for up to 30 days. If a browser keeps an old `service-worker.js`, it never notices a release and says "up to date". Three things prevent this:
+- `deploy/htaccess`, uploaded as `.htaccess`, sets `no-cache` on `service-worker.js` and the HTML pages. The deploy never overwrites an `.htaccess` it didn't create, and it warns if the header is missing.
+- The service worker is registered with `updateViaCache: 'none'`.
+- A new version installs with `cache: 'reload'`, so it never reuses stale files.
+
 ## How it works
 
 | File | Role |

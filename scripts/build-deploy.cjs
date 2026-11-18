@@ -36,6 +36,8 @@ fs.rmSync(dist, { recursive: true, force: true });
 for (const item of DEPLOY) {
     fs.cpSync(path.join(root, item), path.join(dist, item), { recursive: true });
 }
+// Server cache rules (see deploy/htaccess).
+fs.copyFileSync(path.join(root, 'deploy', 'htaccess'), path.join(dist, '.htaccess'));
 
 for (const file of STAMPED) {
     const p = path.join(dist, file);

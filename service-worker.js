@@ -28,7 +28,13 @@ const APP_ASSETS = [
 // until the user chooses to apply it (see the update prompt in index.html).
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(CACHE_VERSION).then((cache) => cache.addAll(APP_ASSETS))
+        // cache: 'reload' fetches every file fresh from the server, never from the
+        // browser's HTTP cache (the host tells browsers to keep files for 30 days,
+        // which could otherwise install a new version with stale files).
+        // Browsers that don't support it just ignore the option.
+        caches.open(CACHE_VERSION).then((cache) => cache.addAll(
+            APP_ASSETS.map((url) => new Request(url, { cache: 'reload' }))
+        ))
     );
 });
 
