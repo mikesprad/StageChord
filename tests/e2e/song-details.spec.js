@@ -20,8 +20,9 @@ test('song name and details can be edited and survive a reload', async ({ page }
     await addSongsToLibrary(page, [SONG]);
     await expect(page.locator('#current-song-title')).toHaveText(SONG.title);
 
-    await page.getByRole('button', { name: '✎ Edit' }).click();
-    await page.locator('#current-song-title').click();
+    // "Edit info" is always visible, not hidden inside edit mode.
+    await page.getByRole('button', { name: 'Edit info' }).click();
+    await expect(page.locator('#song-details-panel')).toContainText('Song info');
     await page.locator('#song-details-title').fill('Renamed Song');
     const rows = page.locator('.song-details-row');
     let flowRow = null;
@@ -31,7 +32,7 @@ test('song name and details can be edited and survive a reload', async ({ page }
     expect(flowRow).not.toBeNull();
     await expect(flowRow.locator('.song-details-value')).toHaveValue('Intro V1 Ch V2 Ch');
     await flowRow.locator('.song-details-value').fill('V1 Ch V2 Ch Ch');
-    await page.getByRole('button', { name: '+ Add detail' }).click();
+    await page.getByRole('button', { name: '+ Add song info' }).click();
     const newRow = page.locator('.song-details-row').last();
     await newRow.locator('.song-details-key').fill('artist');
     await newRow.locator('.song-details-value').fill('Someone');
@@ -49,4 +50,15 @@ test('song name and details can be edited and survive a reload', async ({ page }
 
     await page.reload();
     await expect(page.locator('#current-song-title')).toHaveText('Renamed Song');
+});
+
+test('song header layout: info button on the title row, song buttons below', async ({ page }) => {
+    await openApp(page);
+    await addSongsToLibrary(page, [SONG]);
+    const top = async (sel) => (await page.locator(sel).boundingBox()).y;
+    const editInfo = page.getByRole('button', { name: 'Edit info' });
+    await expect(editInfo).toBeVisible();
+    expect(Math.abs((await editInfo.boundingBox()).y - await top('#current-song-title'))).toBeLessThan(15);
+    await expect(page.locator('#song-btn-row button')).toHaveText(['+Memo', '+Stave', '✎ Edit song', 'A-', 'A+']);
+    expect(await top('#song-btn-row')).toBeGreaterThan(await top('#current-song-title') + 10);
 });
