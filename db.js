@@ -400,6 +400,12 @@ function hashText(text) {
 // ── Songs (library) ─────────────────────────────────
 
 export async function addSong(filename, originalText, libraryId = DEFAULT_LIBRARY_ID) {
+    const result = await addSongIfNew(filename, originalText, libraryId);
+    return result.id;
+}
+
+// Like addSong, but also says whether the song was new to this library.
+async function addSongIfNew(filename, originalText, libraryId) {
     const db = await openDB();
     const normalizedLibraryId = normalizeLibraryId(libraryId);
     const hash = hashText(originalText);
@@ -413,7 +419,7 @@ export async function addSong(filename, originalText, libraryId = DEFAULT_LIBRAR
         req.onerror = () => reject(req.error);
     });
     if (existing.length > 0) {
-        return existing[0].id; // Already imported
+        return { id: existing[0].id, isNew: false }; // Already in this library
     }
 
     return new Promise((resolve, reject) => {
@@ -426,7 +432,7 @@ export async function addSong(filename, originalText, libraryId = DEFAULT_LIBRAR
             contentHash: hash,
             importedAt: Date.now()
         });
-        req.onsuccess = () => resolve(req.result); // returns id
+        req.onsuccess = () => resolve({ id: req.result, isNew: true });
         req.onerror = () => reject(req.error);
     });
 }
@@ -613,30 +619,27 @@ export async function importLibrary(data, libraryId = DEFAULT_LIBRARY_ID) {
         throw new Error('Invalid bundle file: expected a songs array');
     }
 
-    let imported = 0;
-    let skipped = 0;
+    // added: songs new to this library. alreadyHad: songs it already had (same
+    // text), which are left alone, keeping whatever notes and key they have.
+    let added = 0;
+    let alreadyHad = 0;
     for (const entry of songs) {
         if (!entry) continue;
         const filename = entry.filename || entry.name || 'Imported Song.chopro';
         const originalText = entry.originalText || entry.text || null;
         if (!originalText) continue;
 
-        const id = await addSong(filename, originalText, libraryId);
-        // Check if this was a new import (no existing state) and entry has state
+        const { id, isNew } = await addSongIfNew(filename, originalText, libraryId);
+        if (isNew) added++; else alreadyHad++;
         if (entry.state) {
+            // Bring in the file's notes and key only where the song has none yet.
             const existingState = await getSongState(id);
-            // Only overwrite state if there's no existing state, or the import is newer
             if (!existingState || !existingState.updatedAt) {
                 await saveSongState(id, entry.state);
-                imported++;
-            } else {
-                skipped++;
             }
-        } else {
-            imported++;
         }
     }
-    return { imported, skipped };
+    return { added, alreadyHad };
 }
 
 // ── Export / Import Setlist ─────────────────────────

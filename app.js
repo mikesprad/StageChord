@@ -625,6 +625,22 @@ fileSelect.addEventListener('change', () => {
     saveSessionRef();
 });
 
+function songCount(n) {
+    return n + (n === 1 ? ' song' : ' songs');
+}
+
+// What a library import did, in plain words.
+function libraryImportMessage(result, libName) {
+    const where = libName ? ` "${libName}" library` : ' your library';
+    if (result.added === 0 && result.alreadyHad === 0) return 'No songs found in that file.';
+    if (result.added === 0) return `No new songs. All ${songCount(result.alreadyHad)} are already in${where}.`;
+    let msg = `Added ${songCount(result.added)} to${where}.`;
+    if (result.alreadyHad > 0) {
+        msg += ` ${songCount(result.alreadyHad)} ${result.alreadyHad === 1 ? 'was' : 'were'} already there.`;
+    }
+    return msg;
+}
+
 importLibraryInput.addEventListener('change', async () => {
     const file = importLibraryInput.files[0];
     if (!file) return;
@@ -666,7 +682,8 @@ importLibraryInput.addEventListener('change', async () => {
         const text = await file.text();
         const data = JSON.parse(text);
         const result = await importLibrary(data, currentLibraryId);
-        alert(`Imported ${result.imported} song(s), ${result.skipped} skipped.`);
+        const lib = await getLibrary(currentLibraryId);
+        alert(libraryImportMessage(result, lib ? lib.name : ''));
     } catch (e) {
         alert('Failed to import bundle: ' + e.message);
     }
@@ -762,7 +779,7 @@ async function importFromUrlHash() {
             const lib = await getLibrary(libraryId);
             const libName = lib ? lib.name : 'Default';
             saveSessionRef();
-            alert(`Imported ${result.imported} song(s) into "${libName}", ${result.skipped} skipped.`);
+            alert(libraryImportMessage(result, libName));
             return false; // still restore session normally
         } catch (e) {
             alert('Failed to import bundle: ' + e.message);
