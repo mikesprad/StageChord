@@ -221,3 +221,20 @@ describe('converter: wrapped bar lines', () => {
     expect(conv.body).toContain('| [D] [Em7] . . |');
   });
 });
+
+describe('converter: footers', () => {
+  it('a footer stored letter by letter is not cut in half as if it were two columns', () => {
+    const footer = 'Note: Reproduction of this sheet music requires a licence. Please report all copies.';
+    const items = [{ str: 'Ropes on the bollard', x: 50, y: 700, w: 120, h: 10 }];
+    for (let k = 0; k < footer.length; k++) items.push({ str: footer[k], x: 50 + k * 5.5, y: 60, w: 5, h: 8 });
+    const { text } = pdfToText([{ width: 595, items }]);
+    expect(text.split('\n')).toContain(footer);
+  });
+
+  it('reads a CCLI number and copyright on the same line', () => {
+    const { conv } = chordPro('Verse:\nG\nRopes on the bollard\n\nCCLI #1234567 © 2025 Example Music,\nSample Songs Ltd. All rights reserved.');
+    expect(conv.meta.ccli).toBe('1234567');
+    expect(conv.meta.copyright).toBe('© 2025 Example Music, Sample Songs Ltd. All rights reserved.');
+    expect(conv.body.join('\n')).not.toMatch(/CCLI|©/);
+  });
+});

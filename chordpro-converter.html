@@ -388,7 +388,8 @@ const PAGE_MARK_RE = /^--- Page (\d+) ---$/;              // added between PDF p
 const PAGE_NUM_RE = /^\s*page\s+\d+(?:\s*(?:of|\/)\s*\d+)?\s*$/i;
 const COPYRIGHT_RE = /^\s*(?:©|\(c\)\s|copyright\b)/i;
 const LICENCE_RE = /(all rights reserved|used by permission|for use solely with|reproduction of this sheet|ccli\.com|ccli licen[cs]e)/i;
-const CCLI_RE = /^\s*ccli\s*(?:song)?\s*(?:#|no\.?|number)?\s*:?\s*(\d{3,})\s*$/i;
+// "CCLI Song # 123", "CCLI #123", optionally followed by the copyright on the same line
+const CCLI_RE = /^\s*ccli\s*(?:song)?\s*(?:#|no\.?|number)?\s*:?\s*(\d{3,})\s*(.*)$/i;
 // "Joe L Barnes | Joshua Holiday | Steven Furtick": names split by " | ", no numbers
 const NAMES_LIST_RE = /^\s*[A-Z][^|\d]*(?:\s\|\s[A-Z][^|\d]*)+\s*$/;
 function isInfoLine(l) { return !!(readFields(l) || WRITERS_RE.test(l) || NAMES_LIST_RE.test(l) || BASED_ON_RE.test(l) || /^\s*capo\b/i.test(l)); }
@@ -456,7 +457,7 @@ function convert(raw, opts = {}) {
   };
 
   for (let i = 0; i < lines.length; i++) {
-    const l = lines[i];
+    let l = lines[i];
     // Metadata, mainly near the top
     let m;
     if (!started) {
@@ -483,7 +484,12 @@ function convert(raw, opts = {}) {
     // Footer lines on any page: CCLI number, copyright (and its next line), licence wording, page numbers
     if ((m = l.match(PAGE_MARK_RE))) { page = +m[1]; pageTop = true; afterCopyright = false; pushBlank(); continue; }
     if (PAGE_NUM_RE.test(l)) continue;
-    if ((m = l.match(CCLI_RE))) { if (!meta.ccli) meta.ccli = m[1]; afterCopyright = false; continue; }
+    if ((m = l.match(CCLI_RE)) && (!m[2] || COPYRIGHT_RE.test(m[2]))) {
+      if (!meta.ccli) meta.ccli = m[1];
+      afterCopyright = false;
+      if (!m[2]) continue;
+      l = m[2];                                    // "CCLI #123 © 2025 ...": go on to the copyright
+    }
     if (COPYRIGHT_RE.test(l)) {
       copyrightOpen = !meta.copyright;
       if (copyrightOpen) meta.copyright = l.trim();
@@ -689,19 +695,29 @@ function pdfToText(pages, measure) {
     if (!items.length) return;
     if (pi > 0) outLines.push("", "--- Page " + (pi + 1) + " ---");
     const W = pg.width;
-    // Find a gutter: the x near the middle crossed by the fewest text items
+    // Some PDFs give every letter as its own item. Join neighbouring items on a line into
+    // runs (words and phrases) so a column split can never cut a line in half.
+    const runs = [];
+    items.slice().sort((a, b) => b.y - a.y || a.x - b.x).forEach(it => {
+      const r = runs[runs.length - 1];
+      if (r && Math.abs(r.y - it.y) <= lineGap && it.x - (r.x + r.w) <= 6 && it.x >= r.x) {
+        r.w = Math.max(r.w, it.x + it.w - r.x); r.items.push(it);
+      } else runs.push({ x: it.x, y: it.y, w: it.w, items: [it] });
+    });
+    const flat = (rs) => [].concat(...rs.map(r => r.items));
+    // Find a gutter: the x near the middle crossed by the fewest runs
     let split = null, best = Infinity;
     for (let x = W * 0.35; x <= W * 0.65; x += 2) {
-      const c = items.filter(i => i.x < x && i.x + i.w > x).length;
+      const c = runs.filter(r => r.x < x && r.x + r.w > x).length;
       if (c < best) { best = c; split = x; }
     }
-    const rightCount = items.filter(i => i.x >= split).length;
-    if (!(rightCount >= 8 && best <= Math.max(3, items.length * 0.03))) split = null;
+    const rightCount = runs.filter(r => r.x >= split).length;
+    if (!(rightCount >= 8 && best <= Math.max(3, runs.length * 0.03))) split = null;
     if (split === null) { outLines.push(...linesOf(items), ""); return; }
     columns = 2;
-    const full = items.filter(i => i.x < split && i.x + i.w > split);
-    const left = items.filter(i => i.x + i.w <= split);
-    const right = items.filter(i => i.x >= split);
+    const full = flat(runs.filter(r => r.x < split && r.x + r.w > split));
+    const left = flat(runs.filter(r => r.x + r.w <= split));
+    const right = flat(runs.filter(r => r.x >= split));
     const colTop = Math.max(...right.map(i => i.y));
     const header = full.filter(i => i.y > colTop), footer = full.filter(i => i.y <= colTop);
     outLines.push(...linesOf(header), ...linesOf(left), "", ...linesOf(right), "", ...linesOf(footer), "");
