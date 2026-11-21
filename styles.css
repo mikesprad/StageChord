@@ -145,7 +145,7 @@ main {
 }
 #song-meta-row {
   flex-basis: 100%;
-  font-size: 1rem;
+  font-size: 1.07rem;
 }
 
 /* ── Menu panel ──────────────────────────────────── */
@@ -567,7 +567,14 @@ body.old-ios-menu #menu-panel {
   font-weight: 700;
 }
 #current-song-key {
-  font-size: 1rem;
+  font-size: 1.07rem;
+}
+/* Song controls a touch larger than the browser's default button text */
+#song-order-btn,
+#file-select,
+#nav-buttons button,
+#current-song-key button {
+  font-size: 0.9rem;
 }
 #song-btn-row {
   flex-basis: 100%;
@@ -603,7 +610,7 @@ body.old-ios-menu #menu-panel {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.96rem;
 }
 #section-jumps {
   display: flex;
@@ -616,7 +623,7 @@ body.old-ios-menu #menu-panel {
   border-radius: 4px;
   background: #fff;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.92rem;
 }
 #section-jumps button:hover {
   background: #f2f2f2;
@@ -733,7 +740,7 @@ body.old-ios-menu #menu-panel {
 .annotate-btn {
   margin-left: 0;
   padding: 0.15rem 0.45rem;
-  font-size: 0.85rem;
+  font-size: 0.92rem;
   font-weight: 700;
   cursor: pointer;
   border: 1px solid #777;

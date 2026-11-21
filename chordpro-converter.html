@@ -35,12 +35,15 @@ body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
 h1 { font-size: 1.15rem; font-weight: 700; margin: 0; }
+/* The link and the button in the bar: same box, same text, white like StageChord's buttons */
 .bar-btn {
-  display: inline-block; font: 500 0.9rem/1.2 var(--f-body); color: #fff; background: transparent;
-  border: 1px solid rgba(255,255,255,0.6); border-radius: 4px; padding: 6px 12px; cursor: pointer;
-  text-decoration: none; white-space: nowrap;
+  display: inline-flex; align-items: center; height: 34px; margin: 0; padding: 0 12px;
+  font: 600 0.9rem/1 var(--f-body); color: #333; background: #fff;
+  border: 1px solid #fff; border-radius: 4px; cursor: pointer;
+  text-decoration: none; white-space: nowrap; vertical-align: middle; -webkit-appearance: none; appearance: none;
 }
-.bar-btn:hover { background: rgba(255,255,255,0.15); }
+.bar-btn:hover { background: #eee; }
+.bar .actions { align-items: center; }
 .wrap {
   max-width: 1280px; margin: 0 auto; display: grid; gap: 16px; padding: 16px 16px 32px;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
@@ -54,7 +57,11 @@ h1 { font-size: 1.15rem; font-weight: 700; margin: 0; }
   align-items: end;
 }
 @media (max-width: 860px) { .details { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } }
-@media (max-width: 480px) { .details { grid-template-columns: minmax(0,1fr); } }
+/* Phones: one column, so the blank lines that line fields up side by side aren't needed */
+@media (max-width: 480px) {
+  .details { grid-template-columns: minmax(0,1fr); }
+  .details .spacer, .details .hint:empty { display: none; }
+}
 .field { display: grid; gap: 4px; min-width: 0; }
 label, .lbl { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
 input[type=text], select {
@@ -144,12 +151,12 @@ textarea {
     <div class="field">
       <label for="artist">Artist</label>
       <input type="text" id="artist" autocomplete="off" placeholder="Enter artist (optional)">
-      <div class="hint">&nbsp;</div>
+      <div class="hint spacer">&nbsp;</div>
     </div>
     <div class="field">
       <label for="key">Key</label>
       <input type="text" id="key" autocomplete="off" autocapitalize="off" placeholder="e.g. G" size="5">
-      <div class="hint">&nbsp;</div>
+      <div class="hint spacer">&nbsp;</div>
     </div>
     <div class="field">
       <label for="ext">File type</label>
@@ -160,10 +167,10 @@ textarea {
         <option value="pro">.pro</option>
         <option value="txt">.txt</option>
       </select>
-      <div class="hint">&nbsp;</div>
+      <div class="hint spacer">&nbsp;</div>
     </div>
     <div class="field">
-      <span class="lbl">&nbsp;</span>
+      <span class="lbl spacer">&nbsp;</span>
       <div class="actions">
         <button class="btn primary" id="addToApp" type="button">Add to StageChord</button>
         <button class="btn" id="download" type="button">Download</button>
