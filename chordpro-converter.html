@@ -543,10 +543,6 @@ function convert(raw, opts = {}) {
     push(l.replace(/\uE000/g, "").trim());
     lyricLines.push({ text: l.replace(/\uE000/g, "").trim(), section, page });
   }
-  // SongSelect splits words into sung syllables ("a - lone"): join them back up, keeping any chord in between
-  if (songSelect) for (let k = 0; k < out.length; k++) {
-    if (!/:$/.test(out[k]) && !out[k].startsWith("|")) out[k] = out[k].replace(/([A-Za-z’']) - ((?:\[[^\]]*\])?[A-Za-z])/g, "$1$2");
-  }
   while (out.length && out[0] === "") out.shift();
   while (out.length && out[out.length - 1] === "") out.pop();
   // Later pages that start with page 1's lyrics (e.g. the song again as a number chart): kept, but flagged

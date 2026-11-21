@@ -197,3 +197,11 @@ describe('converter: SongSelect-style header without labels', () => {
     expect(conv.body).toContain('| [G/B] [C2] . . | [D] [Em7] . . |');
   });
 });
+
+describe('converter: split words', () => {
+  it('leaves words split into syllables as written', () => {
+    const chords = ' '.repeat(11) + 'G' + ' '.repeat(14) + 'C';   // over "har" and "lone"
+    const { conv } = chordPro('CCLI Song # 1234567\nVerse:\n' + chords + '\nAll to the har - bour a - lone');
+    expect(conv.body).toContain('All to the [G]har - bour a - [C]lone');
+  });
+});
