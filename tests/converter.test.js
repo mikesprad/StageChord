@@ -132,3 +132,11 @@ describe('converter: key box', () => {
     expect(buildChordPro(conv, 'T', '')).not.toMatch(/\{key:/);
   });
 });
+
+describe('converter: title from the first line', () => {
+  it('takes a title line followed straight by chords', () => {
+    const { conv } = chordPro('Harbour Lights\nEm              C\nHarbour lights on the water tonight\nG          D\nHarbour lights on the water');
+    expect(conv.meta.title).toBe('Harbour Lights');
+    expect(conv.body.join('\n')).not.toMatch(/^Harbour Lights$/m);
+  });
+});

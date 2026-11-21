@@ -203,7 +203,6 @@ const EXTRA_RE = /^(?:x\d+|\(x\d+\)|\d+x|\(\d+x\)|n\.?c\.?|\(n\.?c\.?\)|-+|\/+|%
 const REPEAT_RE = /^\(?(?:x\d+|\d+x)\)?$/i;
 const SECTION_WORDS = /^(intro|verse|pre[- ]?chorus|chorus|post[- ]?chorus|bridge|middle\s*8|outro|interlude|instrumental|solo|refrain|hook|coda|tag|break|ending|link|turnaround|riff|vamp)\b/i;
 const JUNK_RE = /^\s*(difficulty|author|tabbed by|transcribed by|submitted by|strumming|last update|rating|chords used|tuning|print|font|autoscroll|transpose)\b/i;
-const STOP = new Set("a an the and or but so to of in on at for with from by is are was were be been am i im i'm me my you your youre you're we our he she it its it's they them their this that these those oh ooh ah yeah no not do dont don't did just all if as up down out what when where who how can will would could should like got get go".split(" "));
 
 // ---- Chord numbers (Nashville style): 1 = key root, 6m7 = vi minor 7, 1/3 = I over iii, 42 = IV add 2 ----
 const NUM_RE = /^([b#♭♯]?)([1-7])((?:maj|min|mi|m|M|-|dim|aug|sus|add|alt|no|°|ø|\+|Δ|\d{1,2}|\(|\)|b|#)*)(?:\/([b#♭♯]?)([1-7]))?$/;
@@ -477,11 +476,14 @@ function convert(raw, opts = {}) {
     if (l.trim()) afterCopyright = false;
     // Title repeated at the top of a later page
     if (pageTop && meta.title && norm(l) === norm(meta.title)) continue;
-    // Title at the top of the sheet: a short line followed by song info or a section heading
+    // Title at the top of the sheet: a short first line followed by song info, a section
+    // heading, a chord line or a blank line. One followed straight by more lyrics is left
+    // in the song (it's probably the first lyric), but still used as the title (see firstLine).
     if (!started && !meta.title && classify(l) === "lyric" && l.trim().split(/\s+/).length <= 8) {
       let j = i + 1;
+      const gap = j < lines.length && !lines[j].trim();
       while (j < lines.length && !lines[j].trim()) j++;
-      if (j < lines.length && (isInfoLine(lines[j]) || sectionName(lines[j]))) { meta.title = l.trim(); continue; }
+      if (j < lines.length && (gap || isInfoLine(lines[j]) || sectionName(lines[j]) || isChordLine(lines[j]))) { meta.title = l.trim(); continue; }
     }
 
     const kind = classify(l);
@@ -545,56 +547,6 @@ function titleCase(s) {
   return w.map((x, i) => (i > 0 && i < w.length - 1 && SMALL.has(x)) ? x : x.replace(/^(\W*)(\w)/, (a, p, c) => p + c.toUpperCase())).join(" ");
 }
 function norm(s) { return s.toLowerCase().replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim(); }
-
-function guessTitles(lyricLines) {
-  const cands = [];
-  if (!lyricLines.length) return cands;
-  // 1. Repeated phrases (2–5 words) that don't start or end with filler words
-  const counts = new Map();
-  for (const { text, section } of lyricLines) {
-    const words = norm(text).split(" ").filter(Boolean);
-    const bonus = /chorus|refrain|hook/i.test(section) ? 1 : 0;
-    const seen = new Set();
-    for (let n = 2; n <= 5; n++) {
-      for (let i = 0; i + n <= words.length; i++) {
-        const g = words.slice(i, i + n);
-        if (STOP.has(g[0]) || STOP.has(g[g.length - 1])) continue;
-        const key = g.join(" ");
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const c = counts.get(key) || { n, count: 0, bonus: 0 };
-        c.count++; c.bonus += bonus;
-        counts.set(key, c);
-      }
-    }
-  }
-  const phrases = [...counts.entries()]
-    .filter(([, c]) => c.count >= 2)
-    .map(([k, c]) => ({ k, score: (c.count + c.bonus * 0.5) * (1 + c.n * 0.6), count: c.count }))
-    .sort((a, b) => b.score - a.score);
-  // drop phrases contained in a better one with the same count
-  const chosen = [];
-  for (const p of phrases) {
-    if (chosen.some(q => q.k.includes(p.k) && q.count >= p.count)) continue;
-    chosen.push(p);
-    if (chosen.length >= 2) break;
-  }
-  chosen.forEach(p => cands.push(titleCase(p.k)));
-  // 2. Most repeated single word (catches one-word titles)
-  const wc = new Map();
-  for (const { text } of lyricLines) for (const w of norm(text).split(" ")) {
-    if (w.length < 4 || STOP.has(w)) continue;
-    wc.set(w, (wc.get(w) || 0) + 1);
-  }
-  const topWord = [...wc.entries()].sort((a, b) => b[1] - a[1])[0];
-  if (topWord && topWord[1] >= 3 && !cands.some(c => c.toLowerCase().includes(topWord[0]))) cands.push(titleCase(topWord[0]));
-  // 3. Most repeated whole line
-  const lc = new Map();
-  for (const { text } of lyricLines) { const k = norm(text); if (k.split(" ").length >= 2) lc.set(k, (lc.get(k) || 0) + 1); }
-  const topLine = [...lc.entries()].sort((a, b) => b[1] - a[1])[0];
-  if (topLine && topLine[1] >= 2 && !cands.some(c => c.toLowerCase() === topLine[0])) cands.push(titleCase(topLine[0]));
-  return [...new Set(cands)].slice(0, 4);
-}
 
 function buildChordPro(conv, title, artist) {
   const head = [];
@@ -747,33 +699,14 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 };
 
-function setTitleHint(cands, source) {
+// source: "sheet" (a title line at the top), "first" (the first lyric line) or "" (nothing found)
+function setTitleHint(source) {
   const h = $("titleHint");
-  h.innerHTML = "";
-  h.classList.remove("warn");
-  if (source === "sheet") {
-    h.textContent = "Taken from the sheet heading.";
-    titleEl.classList.remove("guess");
-    return;
-  }
-  if (titleTouched) { titleEl.classList.remove("guess"); h.textContent = titleEl.value.trim() ? "" : "Type the song title."; return; }
-  if (!cands.length) {
-    titleEl.classList.add("guess");
-    h.classList.add("warn");
-    h.textContent = "Couldn't work out the title. Please type it.";
-    return;
-  }
-  titleEl.classList.add("guess");
-  h.classList.add("warn");
-  const t = document.createElement("span");
-  t.textContent = cands.length > 1 ? "Best guess. Check it, or pick:" : "Best guess from the lyrics. Check it.";
-  h.appendChild(t);
-  if (cands.length > 1) cands.slice(1).forEach(c => {
-    const b = document.createElement("button");
-    b.type = "button"; b.className = "chip"; b.textContent = c;
-    b.addEventListener("click", () => { titleEl.value = c; titleTouched = true; titleEl.classList.remove("guess"); rebuild(); });
-    h.appendChild(b);
-  });
+  titleEl.classList.toggle("guess", source === "first" || source === "");
+  h.classList.toggle("warn", source === "first" || source === "");
+  h.textContent = source === "sheet" ? "Taken from the top of the sheet."
+    : source === "first" ? "Taken from the first line. Check it."
+    : "Couldn't find a title. Please type it.";
 }
 
 function rebuild(fromInput) {
@@ -790,11 +723,11 @@ function rebuild(fromInput) {
   else if (fromInput && !titleTouched) {
     if (conv.meta.title) {
       titleEl.value = titleCase(conv.meta.title);
-      setTitleHint([], "sheet");
+      setTitleHint("sheet");
     } else {
-      const cands = guessTitles(conv.lyricLines);
-      titleEl.value = cands[0] || "";
-      setTitleHint(cands, "guess");
+      const firstLine = conv.lyricLines.length ? conv.lyricLines[0].text.replace(/[,.;:!?]+$/, "") : "";
+      titleEl.value = firstLine;
+      setTitleHint(firstLine ? "first" : "");
     }
     if (conv.meta.artist && !artistEl.dataset.touched) artistEl.value = conv.meta.artist;
   }
