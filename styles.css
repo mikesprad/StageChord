@@ -2,6 +2,33 @@
 html, body {
   overscroll-behavior-y: none;
 }
+/* No double-tap zoom (it zoomed in on a chord or lyric when tapped twice on
+   stage). Pinch zoom still works. */
+html {
+  touch-action: manipulation;
+}
+/* "Next: Song name" after swiping to change song */
+#swipe-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 2rem;
+  -webkit-transform: translateX(-50%);
+  transform: translateX(-50%);
+  z-index: 1200;
+  background: rgba(40, 40, 40, 0.88);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  -webkit-transition: opacity 0.2s;
+  transition: opacity 0.2s;
+}
+#swipe-toast.visible {
+  opacity: 1;
+}
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,

@@ -678,6 +678,67 @@ if (needsIOSFallback) {
 fileInput.addEventListener('change', handleFiles);
 prevBtn.addEventListener('click', () => navigate(-1));
 nextBtn.addEventListener('click', () => navigate(1));
+
+// ── Swipe left / right on the song to change song ────
+// Works while Scroll is running. A swipe has to be long and mostly sideways, so
+// scrolling or brushing the screen on stage doesn't change song. Ignored near the
+// screen edges (iPhone "back" gesture), with two fingers (pinch), in Edit mode, and
+// on a line that scrolls sideways itself.
+const SWIPE_MIN_DISTANCE = 80;
+const SWIPE_EDGE = 24;
+let swipeStart = null;
+
+function scrollsSideways(el) {
+    for (; el && el !== songView; el = el.parentNode) {
+        if (el.scrollWidth > el.clientWidth + 2) {
+            const overflowX = window.getComputedStyle(el).overflowX;
+            if (overflowX === 'auto' || overflowX === 'scroll') return true;
+        }
+    }
+    return false;
+}
+
+function showSwipeToast(text) {
+    let toast = document.getElementById('swipe-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'swipe-toast';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = text;
+    toast.classList.add('visible');
+    clearTimeout(showSwipeToast.timer);
+    showSwipeToast.timer = setTimeout(() => toast.classList.remove('visible'), 1200);
+}
+
+songView.addEventListener('touchstart', (e) => {
+    swipeStart = null;
+    if (e.touches.length !== 1 || chordEditMode) return;
+    const t = e.touches[0];
+    if (t.clientX < SWIPE_EDGE || t.clientX > window.innerWidth - SWIPE_EDGE) return;
+    if (scrollsSideways(e.target)) return;
+    swipeStart = { x: t.clientX, y: t.clientY, time: Date.now() };
+}, { passive: true });
+
+songView.addEventListener('touchmove', (e) => {
+    if (e.touches.length > 1) swipeStart = null; // pinch zoom, not a swipe
+}, { passive: true });
+
+songView.addEventListener('touchend', (e) => {
+    if (!swipeStart || !e.changedTouches.length) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - swipeStart.x;
+    const dy = t.clientY - swipeStart.y;
+    const quick = Date.now() - swipeStart.time < 800;
+    swipeStart = null;
+    if (!quick || Math.abs(dx) < SWIPE_MIN_DISTANCE || Math.abs(dx) < 2 * Math.abs(dy)) return;
+    const delta = dx < 0 ? 1 : -1; // swipe left = next song
+    const target = currentIndex + delta;
+    if (target < 0 || target >= songs.length) return;
+    navigate(delta);
+    const title = parseChordPro(songs[currentIndex].text).metadata.title || songs[currentIndex].name.replace(/\.[^.]+$/, '');
+    showSwipeToast((delta > 0 ? 'Next: ' : 'Previous: ') + title);
+}, { passive: true });
 songOrderBtn.addEventListener('click', openSongOrderPanel);
 songOrderDoneBtn.addEventListener('click', closeSongOrderPanel);
 autoscrollBtn.addEventListener('click', toggleAutoScroll);
