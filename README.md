@@ -7,6 +7,7 @@ Mobile-friendly ChordPro viewer and setlist manager. Runs entirely in the browse
 - Transpose, add stave notation, edit chords and lyrics
 - Edit a song's name and info (artist, key, tempo, etc.) with **Edit info**. The info lines at the top of a ChordPro file are hidden when a song is displayed. The key is a label for the chords as written: correcting it never moves the chords, and it's stored relative to the song's transpose
 - **ChordPro converter** (`chordpro-converter.html`, linked from Songs & Help): paste a chord sheet or open a PDF, then **Add to StageChord** or download it
+- Swipe left/right to change song in a set; pinch to change the text size (the page doesn't zoom, so the controls stay on screen)
 - Organise songs into **Libraries** (e.g. Church, Funk Band)
 - Build and save **Sets** (setlists) per library
 - Share sets as a link or file
