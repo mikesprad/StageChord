@@ -5,7 +5,8 @@ Mobile-friendly ChordPro viewer and setlist manager. Runs entirely in the browse
 ## Features
 - Display ChordPro songs with chords above lyrics
 - Transpose, add stave notation, edit chords and lyrics
-- Edit a song's name and info (artist, etc.). The info lines at the top of a ChordPro file are hidden when a song is displayed
+- Edit a song's name and info (artist, key, tempo, etc.) with **Edit info**. The info lines at the top of a ChordPro file are hidden when a song is displayed. The key is a label for the chords as written: correcting it never moves the chords, and it's stored relative to the song's transpose
+- **ChordPro converter** (`chordpro-converter.html`, linked from Songs & Help): paste a chord sheet or open a PDF, then **Add to StageChord** or download it
 - Organise songs into **Libraries** (e.g. Church, Funk Band)
 - Build and save **Sets** (setlists) per library
 - Share sets as a link or file
@@ -26,7 +27,7 @@ Done features, ideas and parked work are listed in [FEATURES.md](FEATURES.md).
 ## ChordPro files
 
 - **Header metadata is hidden.** Every line starting with `{` at the top of the file, up to the first lyric or section line, counts as metadata and is never shown. That includes a tag missing its `}` and a tag spread over several lines (`{flow: Intro` … `V2 Ch}`). The search for a missing `}` stops at a blank line, a new `{`, a chord line or 12 lines, so a stray `{` can't hide the song. All of this lives in `parser.js` (`classifyLines`), which the renderer and the editors share.
-- **Tags the app uses:** `title`, `key`, `tempo`. Others (`artist`, `flow`, …) are kept and editable but not displayed. If a key appears more than once, the header wins over the body, and the first header value wins.
+- **Tags the app uses:** `title`, `key`, `tempo`. Keys are always shown as major: a minor key is shown as its relative major (`Am` → C), here and in the converter. With no `key`, the app works it out from the chords (`songKeyInfo` in `app.js`): the major key whose chords fit best. Others (`artist`, `flow`, …) are kept and editable but not displayed. If a key appears more than once, the header wins over the body, and the first header value wins.
 - **`{sc-comment: …}`** is StageChord's own tag for a comment under a section heading. It's the only `{…}` line shown in the song.
 - **Edits never change the original text.** The original is kept for de-duplication and set imports. Chord, comment, key, tempo and details edits are stored as the song's edited text, Reset discards them, and bundles and shared sets carry them.
 
@@ -126,6 +127,7 @@ A new `CACHE_VERSION` is what triggers the update offer, which is why every rele
 | `stave.js` | Stave notation (loads `vexflow.bundle.js` on demand) |
 | `service-worker.js` | Offline cache and update staging; `APP_ASSETS` is the list of files cached |
 | `help.html`, `songlibs/` | Songs & Help page and the downloadable song bundles |
+| `chordpro-converter.html` | Standalone chord sheet / PDF → ChordPro converter. **Add to StageChord** leaves the song in `localStorage` (`stagechord_pending_song`) and opens `index.html`, which adds it to the current library. Pasting works on old iPads; the PDF reader (pdf.js from cdnjs) needs a newer browser, so the button is replaced with a message there. Not in the offline cache |
 
 **Data** (IndexedDB, per device, never sent anywhere):
 - **libraries**: songs and sets belong to one library (e.g. Church, Funk Band).

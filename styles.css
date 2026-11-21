@@ -744,28 +744,6 @@ body.old-ios-menu #menu-panel {
 .annotate-btn:hover {
   background: #eee;
 }
-.edit-meta-row {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-  padding: 0.4rem 0;
-  margin-bottom: 0.5rem;
-  border-bottom: 1px dashed #ccc;
-}
-.edit-meta-label {
-  font-size: 0.85rem;
-  color: #555;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-.edit-meta-input {
-  padding: 0.15rem 0.3rem;
-  font-size: 0.85rem;
-  border: 1px solid #999;
-  border-radius: 3px;
-  width: 4rem;
-}
 .annotation-box {
   background: #fff9e6;
   border: 1px solid #e0c96e;
@@ -1239,7 +1217,8 @@ body.old-ios-menu #menu-panel {
   font-size: 0.9rem;
   margin-bottom: 0.6rem;
 }
-#song-details-panel input[type="text"] {
+#song-details-panel input[type="text"],
+#song-details-panel input[type="number"] {
   box-sizing: border-box;
   border: 1px solid #b9b9b9;
   border-radius: 4px;
@@ -1250,6 +1229,25 @@ body.old-ios-menu #menu-panel {
   display: block;
   width: 100%;
   margin-top: 0.2rem;
+}
+.song-details-keytempo {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+}
+.song-details-keytempo .song-details-label {
+  margin-right: 0.8rem;
+  margin-bottom: 0.2rem;
+}
+.song-details-keytempo input {
+  display: block;
+  width: 6rem;
+  margin-top: 0.2rem;
+}
+.song-details-note {
+  font-size: 0.8rem;
+  color: #666;
+  margin-bottom: 0.8rem;
 }
 .song-details-row {
   display: -webkit-box;

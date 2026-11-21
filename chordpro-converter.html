@@ -3,53 +3,48 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Chord Sheet to ChordPro</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<title>ChordPro Generator</title>
 <style>
-/* Layout: one working bench. Song details strip on top, raw sheet left, ChordPro right; stacks on phones. */
+/* Looks like StageChord: system font, light grey page, teal header bar and buttons.
+   Layout: song details strip on top, original left, ChordPro right; stacks on phones. */
 :root {
-  --bg: #eef1f4;
+  --bg: #fafafa;
   --panel: #ffffff;
-  --ink: #18212b;
-  --muted: #5b6876;
-  --line: #d3dae2;
-  --accent: #b33a2f;      /* red pencil on a chart */
+  --ink: #333333;
+  --muted: #6b6b6b;
+  --line: #dddddd;
+  --accent: #2f7d6c;      /* StageChord teal */
+  --accent-dark: #266b5c;
   --accent-ink: #ffffff;
-  --chord: #1f5fa8;
-  --warn-bg: #fff4dc;
-  --warn-line: #e3b45a;
-  --ok: #2f7a4b;
-  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-  --f-mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+  --chord: #2f7d6c;
+  --warn-bg: #fff9e6;
+  --warn-line: #e8b84b;
+  --ok: #2f7d6c;
+  --f-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --f-mono: ui-monospace, Menlo, Consolas, "Courier New", monospace;
   color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #12171d; --panel: #1a2129; --ink: #e4e9ef; --muted: #96a3b1; --line: #2c3743;
-    --accent: #e0675b; --accent-ink: #1a0f0d; --chord: #7fb3ec;
-    --warn-bg: #3a2f17; --warn-line: #8a6a2a; --ok: #6fc28f; color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #12171d; --panel: #1a2129; --ink: #e4e9ef; --muted: #96a3b1; --line: #2c3743;
-  --accent: #e0675b; --accent-ink: #1a0f0d; --chord: #7fb3ec;
-  --warn-bg: #3a2f17; --warn-line: #8a6a2a; --ok: #6fc28f; color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
-body {
-  background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body);
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 20px 32px;
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
+/* Teal bar like the Songs & Help page */
+.bar { background: var(--accent); color: #fff; }
+.bar-inner {
+  max-width: 1280px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px 16px; padding: 10px 16px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-.wrap { max-width: 1280px; margin: 0 auto; display: grid; gap: 16px; }
-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; }
-.head-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; min-width: 0; flex: 1 1 320px; }
-h1 { font: 700 1.6rem/1.1 var(--f-display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
-h1 span { color: var(--accent); }
+h1 { font-size: 1.15rem; font-weight: 700; margin: 0; }
+.bar-btn {
+  display: inline-block; font: 500 0.9rem/1.2 var(--f-body); color: #fff; background: transparent;
+  border: 1px solid rgba(255,255,255,0.6); border-radius: 4px; padding: 6px 12px; cursor: pointer;
+  text-decoration: none; white-space: nowrap;
+}
+.bar-btn:hover { background: rgba(255,255,255,0.15); }
+.wrap {
+  max-width: 1280px; margin: 0 auto; display: grid; gap: 16px; padding: 16px 16px 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
 .sub { color: var(--muted); margin: 0; font-size: 0.92rem; }
 
 .details {
@@ -61,16 +56,18 @@ h1 span { color: var(--accent); }
 @media (max-width: 860px) { .details { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } }
 @media (max-width: 480px) { .details { grid-template-columns: minmax(0,1fr); } }
 .field { display: grid; gap: 4px; min-width: 0; }
-label, .lbl { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+label, .lbl { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
 input[type=text], select {
-  font: 500 0.98rem var(--f-body); color: var(--ink); background: var(--bg);
-  border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; width: 100%; min-width: 0;
+  font: 16px var(--f-body); color: var(--ink); background: var(--panel);
+  border: 1px solid #b9b9b9; border-radius: 4px; padding: 7px 9px; width: 100%; min-width: 0;
 }
+#key { width: 6rem; }
+input::placeholder, textarea::placeholder { color: #999; font-style: italic; opacity: 1; }
 input.guess { background: var(--warn-bg); border-color: var(--warn-line); }
 input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible {
   outline: 2px solid var(--chord); outline-offset: 1px;
 }
-.hint { font-size: 0.8rem; color: var(--muted); min-height: 1.2em; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.hint { font-size: 0.8rem; color: var(--muted); min-height: 1.5em; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .hint.warn { color: var(--ink); }
 .chip {
   font: 500 0.8rem var(--f-body); color: var(--chord); background: transparent;
@@ -78,10 +75,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 .chip:hover { border-color: var(--chord); }
 .btn {
-  font: 600 0.95rem var(--f-body); border-radius: 6px; padding: 9px 16px; cursor: pointer;
-  border: 1px solid var(--line); background: var(--panel); color: var(--ink); white-space: nowrap;
+  font: 600 0.95rem var(--f-body); border-radius: 4px; padding: 8px 14px; cursor: pointer;
+  border: 1px solid #b9b9b9; background: var(--panel); color: var(--ink); white-space: nowrap;
 }
+.btn:hover { background: #f5f5f5; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { background: var(--accent-dark); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -89,10 +88,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 @media (max-width: 860px) { .panes { grid-template-columns: minmax(0,1fr); } }
 .pane { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; display: grid; grid-template-rows: auto 1fr auto; min-width: 0; }
 .pane-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-.pane-head h2 { font: 700 1rem var(--f-display); margin: 0; }
+.pane-head h2 { font-size: 1rem; font-weight: 700; margin: 0; }
 .pane-head > div { display: grid; gap: 2px; min-width: 0; }
 .pane.drop textarea { outline: 2px dashed var(--chord); outline-offset: -6px; }
-label.btn { display: inline-block; text-transform: none; letter-spacing: 0; font: 600 0.95rem var(--f-body); color: var(--ink); }
+label.btn { display: inline-block; font: 600 0.95rem var(--f-body); }
+label.btn.primary { color: var(--accent-ink); }
 .pane-head .small { font-size: 0.8rem; color: var(--muted); }
 textarea {
   font: 400 0.86rem/1.45 var(--f-mono); color: var(--ink); background: var(--panel);
@@ -100,41 +100,49 @@ textarea {
   white-space: pre; overflow: auto; tab-size: 8;
 }
 .pane-foot { padding: 8px 14px; border-top: 1px solid var(--line); font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-.example { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 6px; padding: 6px 10px; font-size: 0.85rem; }
+.example { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 6px; padding: 6px 10px; font-size: 0.9rem; margin: 0; }
+.intro {
+  margin: 0; font-size: 1.05rem; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+  background: #e0f2ef; border: 1px solid #b7dcd4; border-radius: 6px; padding: 10px 14px;
+}
 .example[hidden] { display: none; }
 .linkbtn { background: none; border: 0; color: var(--chord); font: inherit; text-decoration: underline; cursor: pointer; padding: 0; }
 .toast { color: var(--ok); font-weight: 600; }
+.unavailable { color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) { .btn, .chip { transition: border-color .15s, opacity .15s; } }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="head-text">
-      <h1>Chord sheet <span>→</span> ChordPro</h1>
-      <p class="sub">Paste a chords-over-lyrics sheet from Ultimate Guitar or similar. Chords get folded into the words, sections become “Verse:”.</p>
+<header class="bar">
+  <div class="bar-inner">
+    <h1>ChordPro Generator</h1>
+    <div class="actions">
+      <a class="bar-btn" href="index.html">← Back to StageChord</a>
+      <button class="bar-btn" id="newSong" type="button">New song</button>
     </div>
-    <button class="btn primary" id="newSong" type="button">New song</button>
-  </header>
+  </div>
+</header>
+<div class="wrap">
+  <p class="intro" id="intro"><span>Paste a song from a chord website into the box below, or</span>
+    <label class="btn primary" for="pdfFile" id="pdfBtn">Open PDF</label>
+    <span id="pdfAfter">to convert it.</span>
+    <input type="file" id="pdfFile" accept="application/pdf,.pdf" hidden></p>
 
   <section class="details" aria-label="Song details">
     <div class="field">
       <label for="title">Song title</label>
-      <input type="text" id="title" autocomplete="off" placeholder="Type the song title">
+      <input type="text" id="title" autocomplete="off" placeholder="Enter title">
       <div class="hint" id="titleHint"></div>
     </div>
     <div class="field">
       <label for="artist">Artist</label>
-      <input type="text" id="artist" autocomplete="off" placeholder="Optional">
+      <input type="text" id="artist" autocomplete="off" placeholder="Enter artist (optional)">
       <div class="hint">&nbsp;</div>
     </div>
     <div class="field">
-      <label for="numKey">Number charts in</label>
-      <select id="numKey">
-        <option>C</option><option>Db</option><option>D</option><option>Eb</option><option>E</option><option>F</option>
-        <option>F#</option><option>G</option><option>Ab</option><option>A</option><option>Bb</option><option>B</option>
-      </select>
-      <div class="hint" id="numHint">For 1–7 chord charts</div>
+      <label for="key">Key</label>
+      <input type="text" id="key" autocomplete="off" autocapitalize="off" placeholder="e.g. G" size="5">
+      <div class="hint">&nbsp;</div>
     </div>
     <div class="field">
       <label for="ext">File type</label>
@@ -150,27 +158,39 @@ textarea {
     <div class="field">
       <span class="lbl">&nbsp;</span>
       <div class="actions">
-        <button class="btn primary" id="download" type="button">Download</button>
+        <button class="btn primary" id="addToApp" type="button">Add to StageChord</button>
+        <button class="btn" id="download" type="button">Download</button>
       </div>
       <div class="hint" id="dlHint"></div>
     </div>
   </section>
 
-  <p class="example" id="exampleNote">This is a made-up example song so you can see what it does. Paste your sheet on the left to replace it, or <button class="linkbtn" id="clearEx" type="button">clear it</button>.</p>
+  <p class="example" id="repeatNote" hidden></p>
 
   <div class="panes">
     <section class="pane">
       <div class="pane-head">
-        <div><h2>Pasted sheet</h2><span class="small">Paste chords-over-lyrics text, or open a PDF chart</span></div>
-        <label class="btn" for="pdfFile" id="pdfBtn">Open PDF</label>
-        <input type="file" id="pdfFile" accept="application/pdf,.pdf" hidden>
+        <div><h2>Paste original here</h2><span class="small">Chords above the lyrics, from a chord website or PDF</span></div>
       </div>
-      <textarea id="src" spellcheck="false" aria-label="Pasted chord sheet"></textarea>
+      <textarea id="src" spellcheck="false" aria-label="Paste original here" placeholder="Sample song: paste your song here
+
+[Intro]
+Em   C   G   D
+
+[Verse 1]
+Em              C
+Sample lyrics go here"></textarea>
       <div class="pane-foot" id="srcStats">&nbsp;</div>
     </section>
     <section class="pane">
-      <div class="pane-head"><h2>ChordPro</h2><button class="btn" id="copy" type="button">Copy</button></div>
-      <textarea id="out" spellcheck="false" aria-label="ChordPro output"></textarea>
+      <div class="pane-head"><h2>Converted file - ChordPro</h2><button class="btn" id="copy" type="button">Copy</button></div>
+      <textarea id="out" spellcheck="false" aria-label="Converted file - ChordPro" placeholder="{title: Sample song}
+
+Intro:
+| [Em] [C] [G] [D] |
+
+Verse 1:
+[Em]Sample lyrics [C]go here"></textarea>
       <div class="pane-foot" id="outStats">You can tweak this before downloading. Changing the pasted sheet or title rebuilds it.</div>
     </section>
   </div>
@@ -178,12 +198,11 @@ textarea {
 
 <script>
 // ===== CORE START =====
-const CHORD_RE = /^\(?[A-G](?:#|b|♯|♭)?(?:maj|min|mi|dim|aug|sus|add|m|M|°|ø|\+|-)?(?:[0-9]{1,2})?(?:(?:maj|add|sus|no|omit|b|#|\+|-|\/)?[0-9]{1,2})*(?:\([^)\s]*\))?(?:\/[A-G](?:#|b|♯|♭)?)?\)?\*?$/;
-const EXTRA_RE = /^(?:x\d+|\(x\d+\)|\d+x|\(\d+x\)|n\.?c\.?|\(n\.?c\.?\)|-+|\/+|%|\.{2,}|\*|\(|\)|:|riff|repeat)$/i;
+const CHORD_RE = /^\(?[A-G](?:#|b|♯|♭)?(?:maj|min|mi|dim|aug|sus|add|m|M|°|ø|\+|-)?(?:[0-9]{1,2})?(?:(?:maj|add|sus|no|omit|b|#|\+|-|\/)?[0-9]{1,2}|sus|add|maj)*(?:\([^)\s]*\))?(?:\/[A-G](?:#|b|♯|♭)?)?\)?\*?$/;
+const EXTRA_RE = /^(?:x\d+|\(x\d+\)|\d+x|\(\d+x\)|n\.?c\.?|\(n\.?c\.?\)|-+|\/+|%|\.+|\*|\(|\)|:|riff|repeat)$/i;
 const REPEAT_RE = /^\(?(?:x\d+|\d+x)\)?$/i;
 const SECTION_WORDS = /^(intro|verse|pre[- ]?chorus|chorus|post[- ]?chorus|bridge|middle\s*8|outro|interlude|instrumental|solo|refrain|hook|coda|tag|break|ending|link|turnaround|riff|vamp)\b/i;
 const JUNK_RE = /^\s*(difficulty|author|tabbed by|transcribed by|submitted by|strumming|last update|rating|chords used|tuning|print|font|autoscroll|transpose)\b/i;
-const STOP = new Set("a an the and or but so to of in on at for with from by is are was were be been am i im i'm me my you your youre you're we our he she it its it's they them their this that these those oh ooh ah yeah no not do dont don't did just all if as up down out what when where who how can will would could should like got get go".split(" "));
 
 // ---- Chord numbers (Nashville style): 1 = key root, 6m7 = vi minor 7, 1/3 = I over iii, 42 = IV add 2 ----
 const NUM_RE = /^([b#♭♯]?)([1-7])((?:maj|min|mi|m|M|-|dim|aug|sus|add|alt|no|°|ø|\+|Δ|\d{1,2}|\(|\)|b|#)*)(?:\/([b#♭♯]?)([1-7]))?$/;
@@ -218,7 +237,8 @@ function detectNumbers(lines) {
   return n >= 2;
 }
 
-function stripBars(t) { return t.replace(/^\|+|\|+$/g, "").replace(/^:\|\||\|\|:$/g, ""); }
+// Bar lines and repeat marks around a token: "|Em", "||:Em", "D:|", ":||"
+function stripBars(t) { return t.replace(/^[|:]+/, "").replace(/[|:]+$/, ""); }
 function isChord(t) { return CHORD_RE.test(t); }
 function isChordToken(tok) {
   const t = stripBars(tok);
@@ -307,11 +327,32 @@ function mergeLine(chordLine, lyric) {
 }
 // Chord-only lines (intros, outros, links): "| [Em] [C] [G] [D] | x2"
 // Chords go between bars; anything that isn't a chord (x2, repeat notes) follows.
+// Lines with bar lines or repeat marks (| |: :| ||: :||) keep them as written, where they were:
+// "||: [E] [E] [E] [E] :||", "| [G/B] [C2] . . | [D] [Em7] . . |". Beat dots stay too.
+const REPEAT_MARK_RE = /^(?:\|{1,2}:|:\|{1,2})$/;
 function chordOnlyLine(line) {
   const inside = [], after = [];
+  if (/\|/.test(line)) {
+    // Split bar lines and repeat marks off any chord they touch ("||:E" -> "||:", "E")
+    for (const raw of line.replace(/(\|{1,2}:|:\|{1,2}|\|{1,2})/g, " $1 ").trim().split(/\s+/)) {
+      if (REPEAT_MARK_RE.test(raw) || /^\|{1,2}$/.test(raw)) { inside.push(raw); continue; }
+      const t = stripBars(raw);
+      if (!t) continue;
+      if (/^\.+$/.test(t)) { inside.push(t); continue; }
+      const k = isChordToken(raw);
+      if (k === "chord") inside.push(fmtChordToken(raw));
+      else if (/^\(?n\.?c\.?\)?$/i.test(t)) inside.push("N.C.");
+      else after.push(t);
+    }
+    // A long bar line wrapped onto a second line ("D(4) Em7 . . |"): start it with a bar too,
+    // since StageChord only shows a line as bars if it starts with "|"
+    if (inside.length && inside[0].charAt(0) !== "|") inside.unshift("|");
+    return inside.join(" ") + (after.length ? " " + after.join(" ") : "");
+  }
   for (const raw of line.trim().split(/\s+/)) {
     const t = stripBars(raw);
     if (!t) continue;                              // bar lines are redrawn below
+    if (/^\.+$/.test(t)) { inside.push(t); continue; }
     const k = isChordToken(raw);
     if (k === "chord") inside.push(fmtChordToken(raw));
     else if (/^\(?n\.?c\.?\)?$/i.test(t)) inside.push("N.C.");
@@ -319,6 +360,41 @@ function chordOnlyLine(line) {
   }
   return "| " + inside.join(" ") + " |" + (after.length ? " " + after.join(" ") : "");
 }
+
+// ---- Song info lines (header and footer) ----
+// "Key: Ab", "Key - Ab | Tempo - 75 | Time - 4/4", "Key: Ab BPM: 75 Time: 4/4"
+const FIELDS_LINE_RE = /^\s*(?:key|tempo|bpm|time(?:\s*signature)?)\s*[:\-]/i;
+// Keys are always major, as in StageChord: a minor key becomes its relative major (Am -> C)
+function toMajorKey(k) {
+  const m = String(k).trim().replace("♯", "#").replace("♭", "b").match(/^([A-G][#b]?)\s*(m(?!aj)|min|minor)?$/);
+  if (!m) return String(k).trim();
+  if (!m[2]) return m[1];
+  const i = Math.max(SHARPS.indexOf(m[1]), FLATS.indexOf(m[1]));
+  if (i < 0) return m[1];
+  const j = (i + 3) % 12;
+  return FLAT_KEYS.has(FLATS[j]) ? FLATS[j] : SHARPS[j];
+}
+function readFields(l) {
+  if (!FIELDS_LINE_RE.test(l)) return null;
+  const f = {}; let m;
+  if ((m = l.match(/\bkey\s*[:\-]\s*([A-G][#b♯♭]?m?)(?![A-Za-z0-9#])/i))) f.key = toMajorKey(m[1]);
+  if ((m = l.match(/\b(?:tempo|bpm)\s*[:\-]?\s*(\d{2,3})\b/i))) f.tempo = m[1];
+  if ((m = l.match(/\btime(?:\s*signature)?\s*[:\-]?\s*(\d{1,2}\/\d{1,2})/i))) f.time = m[1];
+  return f;
+}
+const WRITERS_RE = /^\s*(?:writers?|written by|songwriters?|composers?|words (?:and|&) music(?: by)?|music and lyrics(?: by)?)\s*[:\-]?\s*(.+?)\s*$/i;
+const BASED_ON_RE = /^\s*\(?\s*based on the recording by (.+?)\s*\)?\s*$/i;
+const PAGE_MARK_RE = /^--- Page (\d+) ---$/;              // added between PDF pages
+const PAGE_NUM_RE = /^\s*page\s+\d+(?:\s*(?:of|\/)\s*\d+)?\s*$/i;
+const COPYRIGHT_RE = /^\s*(?:©|\(c\)\s|copyright\b)/i;
+const LICENCE_RE = /(all rights reserved|used by permission|for use solely with|reproduction of this sheet|ccli\.com|ccli licen[cs]e)/i;
+// "CCLI Song # 123", "CCLI #123", optionally followed by the copyright on the same line
+const CCLI_RE = /^\s*ccli\s*(?:song)?\s*(?:#|no\.?|number)?\s*:?\s*(\d{3,})\s*(.*)$/i;
+// "Joe L Barnes | Joshua Holiday | Steven Furtick": names split by " | ", no numbers
+const NAMES_LIST_RE = /^\s*[A-Z][^|\d]*(?:\s\|\s[A-Z][^|\d]*)+\s*$/;
+function isInfoLine(l) { return !!(readFields(l) || WRITERS_RE.test(l) || NAMES_LIST_RE.test(l) || BASED_ON_RE.test(l) || /^\s*capo\b/i.test(l)); }
+// "(based on the recording by Elevation Rhythm | original key: B)" -> "Elevation Rhythm"
+function artistFrom(s) { return s.split(/\s*\|\s*/)[0].trim(); }
 
 function convert(raw, opts = {}) {
   const text = raw
@@ -328,7 +404,12 @@ function convert(raw, opts = {}) {
     .replace(/\t/g, "        ");
   let lines = text.split("\n").map(l => l.replace(/\s+$/, ""));
   const meta = { title: "", artist: "", key: "", capo: "", tempo: "", time: "", composer: "", copyright: "", ccli: "" };
-  NUM.key = opts.numbersKey || "C";
+  // Number charts are converted in the sheet's own key when it gives one, otherwise the chosen key (C by default)
+  let sheetKey = "";
+  for (const l of lines) { const f = readFields(l); if (f && f.key) { sheetKey = f.key; break; } }
+  const userKey = typeof opts.key === "string" ? toMajorKey(opts.key) : null;   // null: not set by the user
+  const root = ((userKey || sheetKey).match(/^[A-G][#b♯♭]?/) || ["C"])[0].replace("♯", "#").replace("♭", "b");
+  NUM.key = root;
   NUM.on = detectNumbers(lines);
 
   // CCLI SongSelect sheets: title on line 1, writers on line 2, licence footer at the end
@@ -349,7 +430,7 @@ function convert(raw, opts = {}) {
       if ((mm = l.match(/^\s*CCLI Song\s*#\s*(\d+)/i))) { meta.ccli = mm[1]; return ""; }
       if ((mm = l.match(/^\s*(©.+?)\s*$/))) { meta.copyright = mm[1]; return ""; }
       if (/^\s*(For use solely with the SongSelect|Note: Reproduction of this sheet music|CCLI Licen[cs]e\s*#)/i.test(l)) return "";
-      if ((mm = l.match(/^\s*\(based on the recording by (.+?)\)\s*$/i))) { meta.artist = mm[1]; return ""; }
+      if ((mm = l.match(/^\s*\(based on the recording by (.+?)\)\s*$/i))) { meta.artist = artistFrom(mm[1]); return ""; }
       return l;
     });
   }
@@ -358,6 +439,7 @@ function convert(raw, opts = {}) {
   let section = "";
   let started = false;
   let stats = { sections: 0, chords: 0, merged: 0 };
+  let page = 1, pageTop = false, afterCopyright = false, copyrightOpen = false;
 
   const push = (l) => out.push(l);
   let headerIdx = -1; // index of the most recent section heading in out
@@ -375,7 +457,7 @@ function convert(raw, opts = {}) {
   };
 
   for (let i = 0; i < lines.length; i++) {
-    const l = lines[i];
+    let l = lines[i];
     // Metadata, mainly near the top
     let m;
     if (!started) {
@@ -388,24 +470,54 @@ function convert(raw, opts = {}) {
     if ((m = l.match(/^\s*\{\s*(?:artist|subtitle|st)\s*:\s*(.+?)\s*\}\s*$/i))) { meta.artist = m[1]; continue; }
     if ((m = l.match(/^\s*capo\s*[:\-]?\s*(\d+)/i))) { meta.capo = m[1]; continue; }
     if (/^\s*(?:capo\s*[:\-]?\s*(?:none|no capo)|no capo)\s*$/i.test(l)) continue;
-    // "Key - Ab | Tempo - 75 | Time - 4/4" on one line
-    if (/^\s*(key|tempo|time)\s*[:\-]/i.test(l) && l.includes("|")) {
-      for (const part of l.split("|")) {
-        let pm;
-        if ((pm = part.match(/^\s*key\s*[:\-]\s*([A-G][#b]?m?)\b/i))) meta.key = pm[1];
-        else if ((pm = part.match(/^\s*(?:tempo|bpm)\s*[:\-]?\s*(\d{2,3})/i))) meta.tempo = pm[1];
-        else if ((pm = part.match(/^\s*time\s*[:\-]?\s*(\d{1,2}\/\d{1,2})/i))) meta.time = pm[1];
-      }
+    // Key, tempo and time, on one line or several. The first value found wins (later pages repeat them).
+    const f = readFields(l);
+    if (f) {
+      if (f.key && !meta.key) meta.key = f.key;
+      if (f.tempo && !meta.tempo) meta.tempo = f.tempo;
+      if (f.time && !meta.time) meta.time = f.time;
       continue;
     }
-    if ((m = l.match(/^\s*key\s*[:\-]\s*([A-G][#b]?m?)\b/i))) { meta.key = m[1]; continue; }
-    if ((m = l.match(/^\s*time\s*[:\-]\s*(\d{1,2}\/\d{1,2})\s*$/i))) { meta.time = m[1]; continue; }
-    if ((m = l.match(/^\s*(?:tempo|bpm)\s*[:\-]?\s*(\d{2,3})/i))) { meta.tempo = m[1]; continue; }
+    if ((m = l.match(WRITERS_RE))) { if (!meta.composer) meta.composer = m[1].split(/\s*\|\s*/).join(", "); continue; }
+    if ((m = l.match(BASED_ON_RE))) { if (!meta.artist) meta.artist = artistFrom(m[1]); continue; }
+    if (!started && meta.title && !meta.composer && NAMES_LIST_RE.test(l)) { meta.composer = l.trim().split(/\s*\|\s*/).join(", "); continue; }
+    // Footer lines on any page: CCLI number, copyright (and its next line), licence wording, page numbers
+    if ((m = l.match(PAGE_MARK_RE))) { page = +m[1]; pageTop = true; afterCopyright = false; pushBlank(); continue; }
+    if (PAGE_NUM_RE.test(l)) continue;
+    if ((m = l.match(CCLI_RE)) && (!m[2] || COPYRIGHT_RE.test(m[2]))) {
+      if (!meta.ccli) meta.ccli = m[1];
+      afterCopyright = false;
+      if (!m[2]) continue;
+      l = m[2];                                    // "CCLI #123 © 2025 ...": go on to the copyright
+    }
+    if (COPYRIGHT_RE.test(l)) {
+      copyrightOpen = !meta.copyright;
+      if (copyrightOpen) meta.copyright = l.trim();
+      afterCopyright = true;
+      continue;
+    }
+    if (LICENCE_RE.test(l)) {
+      if (afterCopyright && copyrightOpen) meta.copyright += " " + l.trim();
+      continue;
+    }
+    if (l.trim()) afterCopyright = false;
+    // Title repeated at the top of a later page
+    if (pageTop && meta.title && norm(l) === norm(meta.title)) continue;
+    // Title at the top of the sheet: a short first line followed by song info, a section
+    // heading, a chord line or a blank line. One followed straight by more lyrics is left
+    // in the song (it's probably the first lyric), but still used as the title (see firstLine).
+    if (!started && !meta.title && classify(l) === "lyric" && l.trim().split(/\s+/).length <= 8) {
+      let j = i + 1;
+      const gap = j < lines.length && !lines[j].trim();
+      while (j < lines.length && !lines[j].trim()) j++;
+      if (j < lines.length && (gap || isInfoLine(lines[j]) || sectionName(lines[j]) || isChordLine(lines[j]))) { meta.title = l.trim(); continue; }
+    }
 
     const kind = classify(l);
     if (kind === "blank") { pushBlank(); continue; }
     if (kind === "junk") continue;
     if (kind === "directive") { push(l.trim()); continue; }
+    if (kind === "lyric" || kind === "chords" || kind === "section") pageTop = false;
     if (kind === "section") {
       started = true;
       const s = sectionName(l);
@@ -427,26 +539,34 @@ function convert(raw, opts = {}) {
       if (classify(lines[i + 1]) === "lyric") {
         const merged = mergeLine(l, lines[i + 1]);
         push(merged.replace(/\uE000/g, ""));
-        lyricLines.push({ text: lines[i + 1].replace(/\uE000/g, "").trim(), section });
+        lyricLines.push({ text: lines[i + 1].replace(/\uE000/g, "").trim(), section, page });
         stats.merged++;
         i++;
       } else {
-        push(chordOnlyLine(l));
+        // A bar line wrapped onto the next line ("D(4) Em7 . . |" straight after a line ending
+        // in a bar): put it back on the line above
+        const prev = out[out.length - 1];
+        const wrapped = /\|/.test(l) && !/^\s*[|:]/.test(l) && prev && prev.charAt(0) === "|" && /\|$/.test(prev);
+        if (wrapped) out[out.length - 1] = prev + " " + chordOnlyLine(l).replace(/^\| /, "");
+        else push(chordOnlyLine(l));
       }
       continue;
     }
     // lyric
     started = true;
     push(l.replace(/\uE000/g, "").trim());
-    lyricLines.push({ text: l.replace(/\uE000/g, "").trim(), section });
-  }
-  // SongSelect splits words into sung syllables ("a - lone"): join them back up, keeping any chord in between
-  if (songSelect) for (let k = 0; k < out.length; k++) {
-    if (!/:$/.test(out[k]) && !out[k].startsWith("|")) out[k] = out[k].replace(/([A-Za-z’']) - ((?:\[[^\]]*\])?[A-Za-z])/g, "$1$2");
+    lyricLines.push({ text: l.replace(/\uE000/g, "").trim(), section, page });
   }
   while (out.length && out[0] === "") out.shift();
   while (out.length && out[out.length - 1] === "") out.pop();
-  return { body: out, meta, lyricLines, stats, numbers: NUM.on, numbersKey: NUM.key };
+  // Later pages that start with page 1's lyrics (e.g. the song again as a number chart): kept, but flagged
+  const repeatPages = [];
+  const firstPage = lyricLines.filter(x => x.page === 1).map(x => norm(x.text)).join("\n");
+  for (let p = 2; p <= page; p++) {
+    const start = lyricLines.filter(x => x.page === p).slice(0, 3).map(x => norm(x.text));
+    if (start.length === 3 && firstPage.indexOf(start.join("\n")) === 0) repeatPages.push(p);
+  }
+  return { body: out, meta, lyricLines, stats, numbers: NUM.on, numbersKey: NUM.key, sheetKey, userKey, repeatPages };
 }
 
 const SMALL = new Set("a an and as at but by for in of on or the to vs via".split(" "));
@@ -456,62 +576,15 @@ function titleCase(s) {
 }
 function norm(s) { return s.toLowerCase().replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ").trim(); }
 
-function guessTitles(lyricLines) {
-  const cands = [];
-  if (!lyricLines.length) return cands;
-  // 1. Repeated phrases (2–5 words) that don't start or end with filler words
-  const counts = new Map();
-  for (const { text, section } of lyricLines) {
-    const words = norm(text).split(" ").filter(Boolean);
-    const bonus = /chorus|refrain|hook/i.test(section) ? 1 : 0;
-    const seen = new Set();
-    for (let n = 2; n <= 5; n++) {
-      for (let i = 0; i + n <= words.length; i++) {
-        const g = words.slice(i, i + n);
-        if (STOP.has(g[0]) || STOP.has(g[g.length - 1])) continue;
-        const key = g.join(" ");
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const c = counts.get(key) || { n, count: 0, bonus: 0 };
-        c.count++; c.bonus += bonus;
-        counts.set(key, c);
-      }
-    }
-  }
-  const phrases = [...counts.entries()]
-    .filter(([, c]) => c.count >= 2)
-    .map(([k, c]) => ({ k, score: (c.count + c.bonus * 0.5) * (1 + c.n * 0.6), count: c.count }))
-    .sort((a, b) => b.score - a.score);
-  // drop phrases contained in a better one with the same count
-  const chosen = [];
-  for (const p of phrases) {
-    if (chosen.some(q => q.k.includes(p.k) && q.count >= p.count)) continue;
-    chosen.push(p);
-    if (chosen.length >= 2) break;
-  }
-  chosen.forEach(p => cands.push(titleCase(p.k)));
-  // 2. Most repeated single word (catches one-word titles)
-  const wc = new Map();
-  for (const { text } of lyricLines) for (const w of norm(text).split(" ")) {
-    if (w.length < 4 || STOP.has(w)) continue;
-    wc.set(w, (wc.get(w) || 0) + 1);
-  }
-  const topWord = [...wc.entries()].sort((a, b) => b[1] - a[1])[0];
-  if (topWord && topWord[1] >= 3 && !cands.some(c => c.toLowerCase().includes(topWord[0]))) cands.push(titleCase(topWord[0]));
-  // 3. Most repeated whole line
-  const lc = new Map();
-  for (const { text } of lyricLines) { const k = norm(text); if (k.split(" ").length >= 2) lc.set(k, (lc.get(k) || 0) + 1); }
-  const topLine = [...lc.entries()].sort((a, b) => b[1] - a[1])[0];
-  if (topLine && topLine[1] >= 2 && !cands.some(c => c.toLowerCase() === topLine[0])) cands.push(titleCase(topLine[0]));
-  return [...new Set(cands)].slice(0, 4);
-}
-
 function buildChordPro(conv, title, artist) {
   const head = [];
   head.push("{title: " + title.trim() + "}");
   if (artist.trim()) head.push("{artist: " + artist.trim() + "}");
   if (conv.meta.composer) head.push("{composer: " + conv.meta.composer + "}");
-  const key = conv.numbers ? conv.numbersKey : conv.meta.key;
+  // Never a default key: the key box if the user set it (blank means none), else the sheet's key,
+  // else for a number chart the key the numbers were converted in (C)
+  const key = conv.userKey !== null && conv.userKey !== undefined ? conv.userKey
+    : conv.meta.key || (conv.numbers ? conv.numbersKey : "");
   if (key) head.push("{key: " + key + "}");
   if (conv.meta.capo) head.push("{capo: " + conv.meta.capo + "}");
   if (conv.meta.tempo) head.push("{tempo: " + conv.meta.tempo + "}");
@@ -549,7 +622,8 @@ function pdfToText(pages, measure) {
       for (let k = 0; k < it.str.length; k++) { xs.push(it.x + it.w * (measure(it.str.slice(0, k)) / total)); text += it.str[k]; }
       end = it.x + it.w;
     }
-    return { text, xs, starts, y: items[0].y, x0: items[0].x, end };
+    const h = Math.max.apply(null, items.map(it => it.h || 0));   // text size (0 if unknown)
+    return { text, xs, starts, y: items[0].y, x0: items[0].x, end, h };
   }
   function linesOf(items) {
     items = items.slice().sort((a, b) => b.y - a.y || a.x - b.x);
@@ -579,7 +653,8 @@ function pdfToText(pages, measure) {
     for (let i = 0; i < built.length; i++) {
       const L = built[i], N = built[i + 1];
       if (i > 0 && built[i - 1].y - L.y > 30) res.push("");
-      if (isChordLine(L.text) && N && !isChordLine(N.text) && !sectionName(N.text) && L.y - N.y <= 16) {
+      // Chords sit just above their lyric: within 16pt, or 1.5 lines of text for large print
+      if (isChordLine(L.text) && N && !isChordLine(N.text) && !sectionName(N.text) && L.y - N.y <= Math.max(16, 1.5 * Math.max(L.h, N.h))) {
         const avg = (N.end - N.x0) / Math.max(1, N.text.length);
         let line = "", lyr = N.text, shift = 0;
         const re = /\S+/g; let m;
@@ -615,114 +690,86 @@ function pdfToText(pages, measure) {
     return res;
   }
 
-  for (const pg of pages) {
+  pages.forEach((pg, pi) => {
     const items = pg.items.filter(i => i.str && i.str.trim()).map(i => ({ ...i }));
-    if (!items.length) continue;
+    if (!items.length) return;
+    if (pi > 0) outLines.push("", "--- Page " + (pi + 1) + " ---");
     const W = pg.width;
-    // Find a gutter: the x near the middle crossed by the fewest text items
+    // Some PDFs give every letter as its own item. Join neighbouring items on a line into
+    // runs (words and phrases) so a column split can never cut a line in half.
+    const runs = [];
+    items.slice().sort((a, b) => b.y - a.y || a.x - b.x).forEach(it => {
+      const r = runs[runs.length - 1];
+      if (r && Math.abs(r.y - it.y) <= lineGap && it.x - (r.x + r.w) <= 6 && it.x >= r.x) {
+        r.w = Math.max(r.w, it.x + it.w - r.x); r.items.push(it);
+      } else runs.push({ x: it.x, y: it.y, w: it.w, items: [it] });
+    });
+    const flat = (rs) => [].concat(...rs.map(r => r.items));
+    // Find a gutter: the x near the middle crossed by the fewest runs
     let split = null, best = Infinity;
     for (let x = W * 0.35; x <= W * 0.65; x += 2) {
-      const c = items.filter(i => i.x < x && i.x + i.w > x).length;
+      const c = runs.filter(r => r.x < x && r.x + r.w > x).length;
       if (c < best) { best = c; split = x; }
     }
-    const rightCount = items.filter(i => i.x >= split).length;
-    if (!(rightCount >= 8 && best <= Math.max(3, items.length * 0.03))) split = null;
-    if (split === null) { outLines.push(...linesOf(items), ""); continue; }
+    const rightCount = runs.filter(r => r.x >= split).length;
+    if (!(rightCount >= 8 && best <= Math.max(3, runs.length * 0.03))) split = null;
+    if (split === null) { outLines.push(...linesOf(items), ""); return; }
     columns = 2;
-    const full = items.filter(i => i.x < split && i.x + i.w > split);
-    const left = items.filter(i => i.x + i.w <= split);
-    const right = items.filter(i => i.x >= split);
+    const full = flat(runs.filter(r => r.x < split && r.x + r.w > split));
+    const left = flat(runs.filter(r => r.x + r.w <= split));
+    const right = flat(runs.filter(r => r.x >= split));
     const colTop = Math.max(...right.map(i => i.y));
     const header = full.filter(i => i.y > colTop), footer = full.filter(i => i.y <= colTop);
     outLines.push(...linesOf(header), ...linesOf(left), "", ...linesOf(right), "", ...linesOf(footer), "");
-  }
+  });
   NUM.on = wasOn;
-  return { text: outLines.join("\n").replace(/\n{3,}/g, "\n\n").trim(), columns, ligatures };
+  // Drop blank lines at the ends, but keep a first chord line's leading spaces (they place its chords)
+  const text = outLines.join("\n").replace(/\n{3,}/g, "\n\n").replace(/^(?:[ \t]*\n)+/, "").replace(/\s+$/, "");
+  return { text, columns, ligatures };
 }
 // ===== CORE END =====
 
 const $ = (id) => document.getElementById(id);
-const src = $("src"), out = $("out"), titleEl = $("title"), artistEl = $("artist"), extEl = $("ext"), numKeyEl = $("numKey");
+const src = $("src"), out = $("out"), titleEl = $("title"), artistEl = $("artist"), extEl = $("ext"), keyEl = $("key");
+let keyTouched = false;
 let pdfNote = "";
 let titleTouched = false;
 let lastConv = null;
-let isExample = true;
 
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 };
 
-const EXAMPLE = `Harbour Lights chords by The Example Band
-Capo: 2
-
-[Intro]
-Em   C   G   D
-
-[Verse 1]
-Em               C
-Ropes on the bollard and salt on the wind
-G                     D
-Somebody's singing where the old boats begin
-Em                C
-Gulls on the railing, the tide turning in
-G                   D
-Lanterns are glowing again
-
-[Chorus]
-C            G
-Harbour lights, harbour lights
-Em          D
-Bring me home tonight
-C            G
-Harbour lights, harbour lights
-D              Em
-Steady through the night
-
-[Outro]
-C   G   D   Em  x2`;
-
-function setTitleHint(cands, source) {
+// source: "sheet" (a title line at the top), "first" (the first lyric line) or "" (nothing found)
+function setTitleHint(source) {
   const h = $("titleHint");
-  h.innerHTML = "";
-  h.classList.remove("warn");
-  if (source === "sheet") {
-    h.textContent = "Taken from the sheet heading.";
-    titleEl.classList.remove("guess");
-    return;
-  }
-  if (titleTouched) { titleEl.classList.remove("guess"); h.textContent = titleEl.value.trim() ? "" : "Type the song title."; return; }
-  if (!cands.length) {
-    titleEl.classList.add("guess");
-    h.classList.add("warn");
-    h.textContent = "Couldn't work out the title. Please type it.";
-    return;
-  }
-  titleEl.classList.add("guess");
-  h.classList.add("warn");
-  const t = document.createElement("span");
-  t.textContent = cands.length > 1 ? "Best guess. Check it, or pick:" : "Best guess from the lyrics. Check it.";
-  h.appendChild(t);
-  if (cands.length > 1) cands.slice(1).forEach(c => {
-    const b = document.createElement("button");
-    b.type = "button"; b.className = "chip"; b.textContent = c;
-    b.addEventListener("click", () => { titleEl.value = c; titleTouched = true; titleEl.classList.remove("guess"); rebuild(); });
-    h.appendChild(b);
-  });
+  titleEl.classList.toggle("guess", source === "first" || source === "");
+  h.classList.toggle("warn", source === "first" || source === "");
+  h.textContent = source === "sheet" ? "Taken from the top of the sheet."
+    : source === "first" ? "Taken from the first line. Check it."
+    : "Couldn't find a title. Please type it.";
 }
 
 function rebuild(fromInput) {
-  const conv = convert(src.value, { numbersKey: numKeyEl.value });
+  const conv = convert(src.value, { key: keyTouched ? keyEl.value : null });
   lastConv = conv;
-  $("numHint").textContent = conv.numbers ? "Numbers found: 1 = " + numToChord("1") : "For 1–7 chord charts";
-  if (fromInput && !titleTouched) {
+  // The key box shows the key that will be written: the sheet's, or C for a number chart without one
+  if (!keyTouched) keyEl.value = src.value.trim() ? (conv.meta.key || (conv.numbers ? conv.numbersKey : "")) : "";
+  const rep = conv.repeatPages;
+  $("repeatNote").hidden = !rep.length;
+  $("repeatNote").textContent = rep.length
+    ? "Page " + rep.join(" and ") + (rep.length > 1 ? " look" : " looks") + " like a repeat of the song. Everything has been kept, so delete the repeat on the right if you don't need it."
+    : "";
+  if (!src.value.trim() && !titleTouched) { titleEl.classList.remove("guess"); $("titleHint").textContent = ""; }
+  else if (fromInput && !titleTouched) {
     if (conv.meta.title) {
       titleEl.value = titleCase(conv.meta.title);
-      setTitleHint([], "sheet");
+      setTitleHint("sheet");
     } else {
-      const cands = guessTitles(conv.lyricLines);
-      titleEl.value = cands[0] || "";
-      setTitleHint(cands, "guess");
+      const firstLine = conv.lyricLines.length ? conv.lyricLines[0].text.replace(/[,.;:!?]+$/, "") : "";
+      titleEl.value = firstLine;
+      setTitleHint(firstLine ? "first" : "");
     }
     if (conv.meta.artist && !artistEl.dataset.touched) artistEl.value = conv.meta.artist;
   }
@@ -730,7 +777,7 @@ function rebuild(fromInput) {
   out.value = src.value.trim() ? buildChordPro(conv, title || "Untitled", artistEl.value) : "";
   $("srcStats").textContent = src.value.trim()
     ? (pdfNote ? pdfNote + " · " : "") + `${conv.stats.sections} sections · ${conv.stats.chords} chords · ${conv.stats.merged} lines merged`
-    : "Paste a sheet or open a PDF to start.";
+    : "Paste a song or open a PDF to start.";
   updateDownload();
 }
 
@@ -741,17 +788,37 @@ function filename() {
 function updateDownload() {
   const ok = titleEl.value.trim() && out.value.trim();
   $("download").disabled = !ok;
-  $("dlHint").textContent = !out.value.trim() ? "Paste a sheet first." : !titleEl.value.trim() ? "Add a song title first." : filename();
+  $("addToApp").disabled = !ok;
+  $("dlHint").textContent = !out.value.trim() ? "Paste a song first." : !titleEl.value.trim() ? "Add a song title first." : filename();
 }
 
-function download() {
-  if ($("download").disabled) return;
-  // Make sure the title line in the output matches the title box
+// The ChordPro to save, with the title line matching the title box
+function finalText() {
   let text = out.value;
   const t = titleEl.value.trim();
   if (/^\{title:[^}]*\}/m.test(text)) text = text.replace(/^\{title:[^}]*\}/m, "{title: " + t + "}");
   else text = "{title: " + t + "}\n" + text;
-  const blob = new Blob([text.replace(/\n/g, "\r\n")], { type: "text/plain;charset=utf-8" });
+  return text;
+}
+
+// Hand the song to StageChord (same site, so they share storage): the app adds it
+// to the current library and opens it when it loads.
+function addToApp() {
+  if ($("addToApp").disabled) return;
+  try {
+    localStorage.setItem("stagechord_pending_song", JSON.stringify({ filename: filename(), text: finalText() }));
+  } catch (e) {
+    $("dlHint").textContent = "Couldn't pass the song to StageChord here. Use Download instead.";
+    return;
+  }
+  location.href = "index.html";
+}
+
+function download() {
+  if ($("download").disabled) return;
+  const text = finalText();
+  // Not text/plain: phones (Android Chrome, iOS Safari) add ".txt" to those, giving "Song.chopro.txt"
+  const blob = new Blob([text.replace(/\n/g, "\r\n")], { type: "application/octet-stream" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = filename();
@@ -761,19 +828,10 @@ function download() {
   h.innerHTML = ""; const s = document.createElement("span"); s.className = "toast"; s.textContent = "Saved " + filename(); h.appendChild(s);
 }
 
-// Drop the sample song. Keeps a title the user typed; clears the sample's artist unless the user set one.
-function dropExample() {
-  if (!isExample) return;
-  isExample = false;
-  $("exampleNote").hidden = true;
-  if (!artistEl.dataset.touched) artistEl.value = "";
-  if (!titleTouched) titleEl.value = "";
-}
-
 // New song: empty everything except a remembered artist, ready to type a title or paste.
 function newSong() {
-  dropExample();
   src.value = ""; titleEl.value = ""; titleTouched = false; pdfNote = "";
+  keyEl.value = ""; keyTouched = false;
   if (!artistEl.dataset.touched) artistEl.value = "";
   titleEl.classList.remove("guess");
   $("titleHint").textContent = "";
@@ -783,13 +841,9 @@ function newSong() {
 
 let timer;
 src.addEventListener("input", () => {
-  dropExample(); pdfNote = "";
+  pdfNote = "";
   clearTimeout(timer); timer = setTimeout(() => rebuild(true), 150);
 });
-src.addEventListener("paste", () => {
-  if (isExample) { src.value = ""; dropExample(); }
-});
-src.addEventListener("focus", () => { if (isExample) { src.select(); } });
 // A title the user typed is never overwritten by a guess. Emptying the box lets it guess again.
 titleEl.addEventListener("input", () => {
   titleTouched = titleEl.value.trim() !== "";
@@ -801,8 +855,8 @@ artistEl.addEventListener("input", () => { artistEl.dataset.touched = "1"; store
 extEl.addEventListener("change", () => { store.set("cp_ext", extEl.value); updateDownload(); });
 out.addEventListener("input", updateDownload);
 $("download").addEventListener("click", download);
+$("addToApp").addEventListener("click", addToApp);
 $("newSong").addEventListener("click", newSong);
-$("clearEx").addEventListener("click", newSong);
 $("copy").addEventListener("click", async () => {
   const b = $("copy");
   try { await navigator.clipboard.writeText(out.value); b.textContent = "Copied"; }
@@ -845,11 +899,10 @@ async function openPdf(file) {
       const page = await doc.getPage(p);
       const tc = await page.getTextContent();
       pages.push({ width: page.getViewport({ scale: 1 }).width,
-        items: tc.items.filter(i => "str" in i).map(i => ({ str: i.str, x: i.transform[4], y: i.transform[5], w: i.width })) });
+        items: tc.items.filter(i => "str" in i).map(i => ({ str: i.str, x: i.transform[4], y: i.transform[5], w: i.width, h: i.height })) });
     }
     const r = pdfToText(pages, measure);
     if (!r.text.trim()) { status.textContent = "That PDF has no text in it (it may be a scan or photo), so it can't be read here."; return; }
-    if (isExample) dropExample();
     src.value = r.text;
     pdfNote = `${file.name}: ${doc.numPages} page${doc.numPages > 1 ? "s" : ""}${r.columns > 1 ? ", 2 columns" : ""}`
       + (r.ligatures.length ? ` · check: ${[...new Set(r.ligatures)].join(", ")}` : "");
@@ -860,23 +913,28 @@ async function openPdf(file) {
   }
 }
 $("pdfFile").addEventListener("change", (e) => { const f = e.target.files[0]; if (f) openPdf(f); e.target.value = ""; });
+// The PDF reader needs a newer browser than old iPads have (it uses ?. and ??).
+let pdfSupported = true;
+try { new Function("var a = {}; return a?.b ?? 1"); } catch (e) { pdfSupported = false; }
+if (!pdfSupported) {
+  $("intro").innerHTML = 'Paste a song from a chord website into the box below. <span class="unavailable">(PDF conversion isn\'t available on older devices.)</span>';
+  document.querySelector(".pane-head .small").textContent = "Chords above the lyrics, from a chord website";
+}
 const srcPane = src.closest(".pane");
 ["dragenter", "dragover"].forEach(t => srcPane.addEventListener(t, (e) => { if ([...e.dataTransfer.types].includes("Files")) { e.preventDefault(); srcPane.classList.add("drop"); } }));
 ["dragleave", "drop"].forEach(t => srcPane.addEventListener(t, () => srcPane.classList.remove("drop")));
 srcPane.addEventListener("drop", (e) => {
-  const f = [...e.dataTransfer.files].find(f => /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name));
+  const f = pdfSupported && [...e.dataTransfer.files].find(f => /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name));
   if (f) { e.preventDefault(); openPdf(f); }
 });
-numKeyEl.addEventListener("change", () => { store.set("cp_numkey", numKeyEl.value); rebuild(false); });
-const savedNumKey = store.get("cp_numkey");
-if (savedNumKey) numKeyEl.value = savedNumKey;
+// A key typed here is never replaced by the sheet's (blank means no key). New song resets it.
+keyEl.addEventListener("input", () => { keyTouched = true; rebuild(false); });
 
 const savedArtist = store.get("cp_artist");
 if (savedArtist) { artistEl.value = savedArtist; artistEl.dataset.touched = "1"; }
 const savedExt = store.get("cp_ext");
 if (savedExt) extEl.value = savedExt;
-src.value = EXAMPLE;
-rebuild(true);
+rebuild(false);
 </script>
 </body>
 </html>
