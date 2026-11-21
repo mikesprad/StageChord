@@ -238,3 +238,59 @@ describe('converter: footers', () => {
     expect(conv.body.join('\n')).not.toMatch(/CCLI|©/);
   });
 });
+
+describe('converter: PDF ligatures', () => {
+  // Unmapped fi/fl/ff glyphs come through as NUL
+  const fix = (line) => pdfToText([{ width: 595, items: [{ str: line, x: 50, y: 700, w: 200, h: 10 }] }]).text.trim();
+  it('spells ff words with ff', () => {
+    expect(fix('o\u0000er su\u0000erings shaking o\u0000')).toBe('offer sufferings shaking off');
+  });
+  it('reads "…\u0000ed" as fied, also after a syllable split', () => {
+    expect(fix('cruci\u0000ed magni - \u0000ed')).toBe('crucified magni - fied');
+  });
+  it('keeps the fi/fl guesses for other words', () => {
+    expect(fix('\u0000re \u0000ame \u0000ll over\u0000ow \u0000ed')).toBe('fire flame fill overflow fled');
+  });
+});
+
+describe('converter: bracketed passing chords', () => {
+  it('writes number and letter chords in brackets as plain chords', () => {
+    const { conv } = chordPro('Key - G\nVerse:\n1 4 (5/7)\n3m7 (6m)\n1            (5(4)/7)\nRopes on the bollard\nChorus:\nG    (Em)\nSalt on the wind');
+    expect(conv.body).toContain('| [G] [C] [D/F#] |');
+    expect(conv.body).toContain('| [Bm7] [Em] |');
+    expect(conv.body).toContain('[G]Ropes on the [D(4)/F#]bollard');
+    expect(conv.body).toContain('[G]Salt [Em]on the wind');
+  });
+  it('leaves other bracketed words alone', () => {
+    const { conv } = chordPro('Key - G\nVerse:\n1 4\n5 1\nRopes on the bollard (x2)');
+    expect(conv.body.join('\n')).toContain('(x2)');
+  });
+});
+
+describe('converter: header variants', () => {
+  it('two-column PDF: a short title stays above the wide writers line', () => {
+    const items = [
+      { str: 'Harbour Lights', x: 40, y: 794, w: 80, h: 15 },
+      { str: 'Ann Example | Bob Sample | Cat Writer | Dan Author | Eve Composer', x: 40, y: 781, w: 300, h: 7 },
+      { str: 'Key - E | Tempo - 63 | Time - 4/4', x: 40, y: 760, w: 140, h: 8 }
+    ];
+    for (let k = 0; k < 10; k++) {
+      items.push({ str: 'Left line ' + k, x: 40, y: 720 - k * 14, w: 100, h: 9 });
+      items.push({ str: 'Right line ' + k, x: 320, y: 720 - k * 14, w: 100, h: 9 });
+    }
+    const { text, columns } = pdfToText([{ width: 595, items }]);
+    expect(columns).toBe(2);
+    expect(text.split('\n').slice(0, 3)).toEqual(['Harbour Lights', 'Ann Example | Bob Sample | Cat Writer | Dan Author | Eve Composer', 'Key - E | Tempo - 63 | Time - 4/4']);
+  });
+  it('"Original Key: E" and a lone "4/4" in the header', () => {
+    const { conv } = chordPro('Original Key: E\nHarbour Lights\n      4/4\n\nVERSE 1\n5\nRopes on the bollard\n1\nSalt on the wind');
+    expect(conv.meta).toMatchObject({ title: 'Harbour Lights', key: 'E', time: '4/4' });
+    expect(conv.body).toContain('[B]Ropes on the bollard');
+    expect(conv.body.join('\n')).not.toMatch(/Original|4\/4/);
+  });
+  it('a plain key beats the original key', () => {
+    const { conv } = chordPro('Original Key: E\nKey - D\nHarbour Lights\n\nVERSE 1\n1\nRopes on the bollard\n5\nSalt on the wind');
+    expect(conv.meta.key).toBe('D');
+    expect(conv.body).toContain('[D]Ropes on the bollard');
+  });
+});
