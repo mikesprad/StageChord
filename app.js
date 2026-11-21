@@ -736,8 +736,9 @@ songView.addEventListener('touchend', (e) => {
     const target = currentIndex + delta;
     if (target < 0 || target >= songs.length) return;
     navigate(delta);
+    // Show the name of the song just moved to
     const title = parseChordPro(songs[currentIndex].text).metadata.title || songs[currentIndex].name.replace(/\.[^.]+$/, '');
-    showSwipeToast((delta > 0 ? 'Next: ' : 'Previous: ') + title);
+    showSwipeToast(title);
 }, { passive: true });
 songOrderBtn.addEventListener('click', openSongOrderPanel);
 songOrderDoneBtn.addEventListener('click', closeSongOrderPanel);

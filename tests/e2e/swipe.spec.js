@@ -18,7 +18,7 @@ test('swiping left and right changes song, and does nothing past the ends', asyn
 
     await swipe(page, 400, 200);                       // left: next
     await expect(title).toHaveText(SONG_TWO.title);
-    await expect(page.locator('#swipe-toast')).toHaveText('Next: ' + SONG_TWO.title);
+    await expect(page.locator('#swipe-toast')).toHaveText(SONG_TWO.title);
 
     await swipe(page, 400, 200);                       // already the last song
     await expect(title).toHaveText(SONG_TWO.title);

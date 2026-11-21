@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- No zooming: pinch zoom pushed the control bar off the top of the screen and
+         double-tap zoomed in on chords. A-/A+ change the text size instead. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>StageChord</title>
     <link rel="stylesheet" href="styles.css?v=20261016T2">
     <link rel="manifest" href="manifest.json">
@@ -204,6 +206,10 @@
 
     <script>
         window.__STAGECHORD_BUILD_ID__ = '20261016T2';
+        // iPhone/iPad Safari ignores user-scalable=no, so block its pinch gesture too.
+        ['gesturestart', 'gesturechange'].forEach(function (type) {
+            document.addEventListener(type, function (e) { e.preventDefault(); }, { passive: false });
+        });
     </script>
     <script type="module" src="app.js?v=20261016T2"></script>
     <script>

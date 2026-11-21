@@ -3,11 +3,12 @@ html, body {
   overscroll-behavior-y: none;
 }
 /* No double-tap zoom (it zoomed in on a chord or lyric when tapped twice on
-   stage). Pinch zoom still works. */
-html {
+   stage). Safari checks this on the element tapped, so it's set on everything.
+   Pinch zoom is off too: see the viewport tag and gesture handler in index.html. */
+html, body, * {
   touch-action: manipulation;
 }
-/* "Next: Song name" after swiping to change song */
+/* The new song's name, shown briefly after swiping to change song */
 #swipe-toast {
   position: fixed;
   left: 50%;
@@ -597,11 +598,15 @@ body.old-ios-menu #menu-panel {
   font-size: 1.07rem;
 }
 /* Song controls a touch larger than the browser's default button text */
-#song-order-btn,
-#file-select,
 #nav-buttons button,
 #current-song-key button {
   font-size: 0.9rem;
+}
+/* Reorder Set stays at the default size and never wraps onto two lines */
+#song-order-btn {
+  white-space: nowrap;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
 }
 #song-btn-row {
   flex-basis: 100%;
