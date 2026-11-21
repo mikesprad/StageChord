@@ -11,9 +11,10 @@ const root = path.join(__dirname, '..');
 const dist = path.join(root, 'dist');
 
 // Everything the live app needs. songlibs/ isn't in the offline cache, but
-// help.html fetches bundles from it.
+// help.html fetches bundles from it. chordpro-converter.html is a standalone
+// tool linked from help.html; it isn't cached offline or held to the old-browser check.
 const DEPLOY = [
-    'index.html', 'help.html', 'app.js', 'db.js', 'parser.js', 'stave.js', 'styles.css',
+    'index.html', 'help.html', 'chordpro-converter.html', 'app.js', 'db.js', 'parser.js', 'stave.js', 'styles.css',
     'manifest.json', 'service-worker.js', 'vexflow.bundle.js', 'icons', 'songlibs'
 ];
 // Files that carry version stamps.
