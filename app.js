@@ -1351,6 +1351,8 @@ function detectSectionType(rawLine) {
     const trimmed = rawLine.trim();
     // Lines wrapped in curly brackets are directives, not headings.
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) return null;
+    // Bar lines are never headings, even with repeat marks: "||: [G] [C] :||".
+    if (trimmed.startsWith('|')) return null;
     // Ignore colons that only appear inside square brackets (chords).
     const withoutBrackets = trimmed.replace(/\[[^\]]*\]/g, '');
     if (!withoutBrackets.includes(':')) return null;

@@ -23,3 +23,11 @@ test('with no key, songs in C that start (or start and end) on Am are shown in C
     await selectSong(page, STARTS_ON_VI);
     await expect(keyLocator(page)).toHaveText(/^Key \(inferred\): C\s/);
 });
+
+test('a bar line with repeat marks is shown as bars, not as a section heading', async ({ page }) => {
+    const SONG = { file: 'repeat-bars-test.chopro', title: 'Repeat Bars Test' };
+    await openApp(page);
+    await addSongsToLibrary(page, [SONG]);
+    await expect(page.locator('#song-view .chord-line')).toHaveText('||: G C . . | D Em . . :||');
+    await expect(page.locator('#song-view .section-heading')).toHaveText(['Instrumental:', 'Verse:']);
+});
