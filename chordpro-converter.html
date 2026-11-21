@@ -344,6 +344,9 @@ function chordOnlyLine(line) {
       else if (/^\(?n\.?c\.?\)?$/i.test(t)) inside.push("N.C.");
       else after.push(t);
     }
+    // A long bar line wrapped onto a second line ("D(4) Em7 . . |"): start it with a bar too,
+    // since StageChord only shows a line as bars if it starts with "|"
+    if (inside.length && inside[0].charAt(0) !== "|") inside.unshift("|");
     return inside.join(" ") + (after.length ? " " + after.join(" ") : "");
   }
   for (const raw of line.trim().split(/\s+/)) {

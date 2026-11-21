@@ -205,3 +205,10 @@ describe('converter: split words', () => {
     expect(conv.body).toContain('All to the [G]har - bour a - [C]lone');
   });
 });
+
+describe('converter: wrapped bar lines', () => {
+  it('starts the second half of a wrapped bar line with a bar', () => {
+    const { conv } = chordPro('Instrumental:\n||: G/B C2 . . | D Em7 . . |\nD Em7 . . |\nD7sus :||');
+    expect(conv.body).toEqual(['Instrumental:', '||: [G/B] [C2] . . | [D] [Em7] . . |', '| [D] [Em7] . . |', '| [D7sus] :||']);
+  });
+});
