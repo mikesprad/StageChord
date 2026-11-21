@@ -207,8 +207,17 @@ describe('converter: split words', () => {
 });
 
 describe('converter: wrapped bar lines', () => {
-  it('starts the second half of a wrapped bar line with a bar', () => {
-    const { conv } = chordPro('Instrumental:\n||: G/B C2 . . | D Em7 . . |\nD Em7 . . |\nD7sus :||');
-    expect(conv.body).toEqual(['Instrumental:', '||: [G/B] [C2] . . | [D] [Em7] . . |', '| [D] [Em7] . . |', '| [D7sus] :||']);
+  it('puts a bar line wrapped onto the next line back on one line', () => {
+    const { conv } = chordPro('Instrumental:\n||: G/B C2 . . | D Em7 . . |\nD Em7 . . |\n| G/B C2 . . | Am7 |\nD7sus :||');
+    expect(conv.body).toEqual([
+      'Instrumental:',
+      '||: [G/B] [C2] . . | [D] [Em7] . . | [D] [Em7] . . |',
+      '| [G/B] [C2] . . | [Am7] | [D7sus] :||'
+    ]);
+  });
+
+  it('starts a wrapped half with a bar when there is no line to join it to', () => {
+    const { conv } = chordPro('Instrumental:\nD Em7 . . |');
+    expect(conv.body).toContain('| [D] [Em7] . . |');
   });
 });

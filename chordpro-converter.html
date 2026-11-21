@@ -537,7 +537,12 @@ function convert(raw, opts = {}) {
         stats.merged++;
         i++;
       } else {
-        push(chordOnlyLine(l));
+        // A bar line wrapped onto the next line ("D(4) Em7 . . |" straight after a line ending
+        // in a bar): put it back on the line above
+        const prev = out[out.length - 1];
+        const wrapped = /\|/.test(l) && !/^\s*[|:]/.test(l) && prev && prev.charAt(0) === "|" && /\|$/.test(prev);
+        if (wrapped) out[out.length - 1] = prev + " " + chordOnlyLine(l).replace(/^\| /, "");
+        else push(chordOnlyLine(l));
       }
       continue;
     }
