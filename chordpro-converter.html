@@ -28,7 +28,7 @@
 html, body { margin: 0; }
 body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
 /* Teal bar like the Songs & Help page */
-.bar { background: var(--accent); color: #fff; }
+.bar { background: var(--accent); color: #fff; padding-top: env(safe-area-inset-top, 0px); }
 .bar-inner {
   max-width: 1280px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
   gap: 8px 16px; padding: 10px 16px;
@@ -95,10 +95,17 @@ label.btn { display: inline-block; font: 600 0.95rem var(--f-body); }
 label.btn.primary { color: var(--accent-ink); }
 .pane-head .small { font-size: 0.8rem; color: var(--muted); }
 textarea {
-  font: 400 0.86rem/1.45 var(--f-mono); color: var(--ink); background: var(--panel);
+  display: block; font: 400 0.86rem/1.45 var(--f-mono); color: var(--ink); background: var(--panel);
   border: 0; resize: vertical; width: 100%; min-height: 56vh; padding: 12px 14px;
   white-space: pre; overflow: auto; tab-size: 8;
 }
+/* Grey sample shown over an empty box. Not a placeholder: iPad Safari puts those on one line. */
+.ta-wrap { position: relative; min-width: 0; }
+.sample {
+  position: absolute; top: 0; left: 0; right: 0; margin: 0; padding: 12px 14px;
+  font: italic 400 0.86rem/1.45 var(--f-mono); color: #999; white-space: pre; overflow: hidden; pointer-events: none;
+}
+.sample[hidden] { display: none; }
 .pane-foot { padding: 8px 14px; border-top: 1px solid var(--line); font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .example { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 6px; padding: 6px 10px; font-size: 0.9rem; margin: 0; }
 .intro {
@@ -172,25 +179,31 @@ textarea {
       <div class="pane-head">
         <div><h2>Paste original here</h2><span class="small">Chords above the lyrics, from a chord website or PDF</span></div>
       </div>
-      <textarea id="src" spellcheck="false" aria-label="Paste original here" placeholder="Sample song: paste your song here
+      <div class="ta-wrap">
+        <textarea id="src" spellcheck="false" aria-label="Paste original here"></textarea>
+        <pre class="sample" id="srcSample" aria-hidden="true">Sample song: paste your song here
 
 [Intro]
 Em   C   G   D
 
 [Verse 1]
 Em              C
-Sample lyrics go here"></textarea>
+Sample lyrics go here</pre>
+      </div>
       <div class="pane-foot" id="srcStats">&nbsp;</div>
     </section>
     <section class="pane">
       <div class="pane-head"><h2>Converted file - ChordPro</h2><button class="btn" id="copy" type="button">Copy</button></div>
-      <textarea id="out" spellcheck="false" aria-label="Converted file - ChordPro" placeholder="{title: Sample song}
+      <div class="ta-wrap">
+        <textarea id="out" spellcheck="false" aria-label="Converted file - ChordPro"></textarea>
+        <pre class="sample" id="outSample" aria-hidden="true">{title: Sample song}
 
 Intro:
 | [Em] [C] [G] [D] |
 
 Verse 1:
-[Em]Sample lyrics [C]go here"></textarea>
+[Em]Sample lyrics [C]go here</pre>
+      </div>
       <div class="pane-foot" id="outStats">You can tweak this before downloading. Changing the pasted sheet or title rebuilds it.</div>
     </section>
   </div>
@@ -785,7 +798,12 @@ function filename() {
   const base = (titleEl.value.trim() || "Untitled").replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, " ").trim();
   return base + "." + extEl.value;
 }
+function syncSamples() {
+  $("srcSample").hidden = !!src.value;
+  $("outSample").hidden = !!out.value;
+}
 function updateDownload() {
+  syncSamples();
   const ok = titleEl.value.trim() && out.value.trim();
   $("download").disabled = !ok;
   $("addToApp").disabled = !ok;
@@ -842,6 +860,7 @@ function newSong() {
 let timer;
 src.addEventListener("input", () => {
   pdfNote = "";
+  syncSamples();
   clearTimeout(timer); timer = setTimeout(() => rebuild(true), 150);
 });
 // A title the user typed is never overwritten by a guess. Emptying the box lets it guess again.
