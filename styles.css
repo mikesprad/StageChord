@@ -4,7 +4,7 @@ html, body {
 }
 /* No double-tap zoom (it zoomed in on a chord or lyric when tapped twice on
    stage). Safari checks this on the element tapped, so it's set on everything.
-   Pinch zoom is off too: see the viewport tag and gesture handler in index.html. */
+   Page pinch zoom is off too (index.html); a pinch changes the text size (app.js). */
 html, body, * {
   touch-action: manipulation;
 }

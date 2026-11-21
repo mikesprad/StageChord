@@ -388,7 +388,7 @@ const needsIOSFallback = isIOS && (iOSVersion === null || iOSVersion <= 15 || is
 
 const FONT_SIZE_KEY = 'stagechord_font_size';
 const MIN_FONT_SIZE = 0.8;
-const MAX_FONT_SIZE = 1.6;
+const MAX_FONT_SIZE = 2.2;   // room to pinch the text up on stage
 const FONT_SIZE_STEP = 0.1;
 let songFontSize = parseFloat(localStorage.getItem(FONT_SIZE_KEY)) || 1;
 let menuTouchActive = false;
@@ -533,6 +533,39 @@ function adjustFontSize(delta) {
 }
 
 applyFontSize(songFontSize);
+
+// ── Pinch to change the song's text size ─────────────
+// Page zoom is off (it pushed the control bar off the screen), so a pinch sets the
+// text size instead, like A-/A+. iPhone/iPad Safari report pinches as gesture events
+// (their default zoom is blocked in index.html); other browsers use two-finger touch.
+let pinchBaseSize = null;
+let pinchStartDistance = 0;
+let pinchFrame = null;
+function pinchTo(scale) {
+    if (pinchBaseSize === null || !(scale > 0)) return;
+    if (pinchFrame) cancelAnimationFrame(pinchFrame);
+    pinchFrame = requestAnimationFrame(() => {
+        pinchFrame = null;
+        if (pinchBaseSize !== null) applyFontSize(pinchBaseSize * scale);
+    });
+}
+// Safari's gesture events win when they fire; two-finger touch covers everything else.
+let pinchByGesture = false;
+document.addEventListener('gesturestart', () => { pinchByGesture = true; pinchBaseSize = songFontSize; });
+document.addEventListener('gesturechange', (e) => pinchTo(e.scale));
+document.addEventListener('gestureend', () => { pinchByGesture = false; pinchBaseSize = null; });
+const touchDistance = (t) => Math.sqrt(Math.pow(t[0].clientX - t[1].clientX, 2) + Math.pow(t[0].clientY - t[1].clientY, 2));
+document.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 2 || pinchByGesture) return;
+    pinchBaseSize = songFontSize;
+    pinchStartDistance = touchDistance(e.touches) || 1;
+}, { passive: true });
+document.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2 && pinchBaseSize !== null && !pinchByGesture) pinchTo(touchDistance(e.touches) / pinchStartDistance);
+}, { passive: true });
+document.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2 && !pinchByGesture) pinchBaseSize = null;
+}, { passive: true });
 
 document.getElementById('menu-export-library').addEventListener('click', async () => {
     closeMenu();
