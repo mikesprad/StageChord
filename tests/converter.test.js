@@ -98,3 +98,21 @@ describe('converter: title', () => {
     expect(conv.meta.title).toBe('');
   });
 });
+
+describe('converter: repeat marks', () => {
+  it('keeps |: and :| where they were', () => {
+    // A number chart (two number lines) in E
+    const { conv } = chordPro('Key: E\nRiff:\n||: 1 1 1 1 :||\nVerse:\n1      4\nRopes on the bollard');
+    expect(conv.body).toContain('||: [E] [E] [E] [E] :||');
+  });
+
+  it('keeps repeat marks touching chords, and a repeat count after', () => {
+    const { conv } = chordPro('Intro:\n|:Em C | G D:| x2');
+    expect(conv.body).toContain('|: [Em] [C] | [G] [D] :| x2');
+  });
+
+  it('leaves ordinary bar lines as before', () => {
+    const { conv } = chordPro('Intro:\nEm   C   G   D  x2');
+    expect(conv.body).toContain('| [Em] [C] [G] [D] | x2');
+  });
+});

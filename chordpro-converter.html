@@ -3,53 +3,48 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Chord Sheet to ChordPro</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<title>ChordPro Generator</title>
 <style>
-/* Layout: one working bench. Song details strip on top, raw sheet left, ChordPro right; stacks on phones. */
+/* Looks like StageChord: system font, light grey page, teal header bar and buttons.
+   Layout: song details strip on top, original left, ChordPro right; stacks on phones. */
 :root {
-  --bg: #eef1f4;
+  --bg: #fafafa;
   --panel: #ffffff;
-  --ink: #18212b;
-  --muted: #5b6876;
-  --line: #d3dae2;
-  --accent: #b33a2f;      /* red pencil on a chart */
+  --ink: #333333;
+  --muted: #6b6b6b;
+  --line: #dddddd;
+  --accent: #2f7d6c;      /* StageChord teal */
+  --accent-dark: #266b5c;
   --accent-ink: #ffffff;
-  --chord: #1f5fa8;
-  --warn-bg: #fff4dc;
-  --warn-line: #e3b45a;
-  --ok: #2f7a4b;
-  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
-  --f-mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+  --chord: #2f7d6c;
+  --warn-bg: #fff9e6;
+  --warn-line: #e8b84b;
+  --ok: #2f7d6c;
+  --f-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --f-mono: ui-monospace, Menlo, Consolas, "Courier New", monospace;
   color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #12171d; --panel: #1a2129; --ink: #e4e9ef; --muted: #96a3b1; --line: #2c3743;
-    --accent: #e0675b; --accent-ink: #1a0f0d; --chord: #7fb3ec;
-    --warn-bg: #3a2f17; --warn-line: #8a6a2a; --ok: #6fc28f; color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #12171d; --panel: #1a2129; --ink: #e4e9ef; --muted: #96a3b1; --line: #2c3743;
-  --accent: #e0675b; --accent-ink: #1a0f0d; --chord: #7fb3ec;
-  --warn-bg: #3a2f17; --warn-line: #8a6a2a; --ok: #6fc28f; color-scheme: dark;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
-body {
-  background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body);
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-top: 20px; padding-bottom: 32px;
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
+/* Teal bar like the Songs & Help page */
+.bar { background: var(--accent); color: #fff; }
+.bar-inner {
+  max-width: 1280px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px 16px; padding: 10px 16px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
 }
-.wrap { max-width: 1280px; margin: 0 auto; display: grid; gap: 16px; }
-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; }
-.head-text { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; min-width: 0; flex: 1 1 320px; }
-h1 { font: 700 1.6rem/1.1 var(--f-display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
-h1 span { color: var(--accent); }
+h1 { font-size: 1.15rem; font-weight: 700; margin: 0; }
+.bar-btn {
+  display: inline-block; font: 500 0.9rem/1.2 var(--f-body); color: #fff; background: transparent;
+  border: 1px solid rgba(255,255,255,0.6); border-radius: 4px; padding: 6px 12px; cursor: pointer;
+  text-decoration: none; white-space: nowrap;
+}
+.bar-btn:hover { background: rgba(255,255,255,0.15); }
+.wrap {
+  max-width: 1280px; margin: 0 auto; display: grid; gap: 16px; padding: 16px 16px 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
 .sub { color: var(--muted); margin: 0; font-size: 0.92rem; }
 
 .details {
@@ -61,16 +56,17 @@ h1 span { color: var(--accent); }
 @media (max-width: 860px) { .details { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } }
 @media (max-width: 480px) { .details { grid-template-columns: minmax(0,1fr); } }
 .field { display: grid; gap: 4px; min-width: 0; }
-label, .lbl { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+label, .lbl { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
 input[type=text], select {
-  font: 500 0.98rem var(--f-body); color: var(--ink); background: var(--bg);
-  border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; width: 100%; min-width: 0;
+  font: 16px var(--f-body); color: var(--ink); background: var(--panel);
+  border: 1px solid #b9b9b9; border-radius: 4px; padding: 7px 9px; width: 100%; min-width: 0;
 }
+input::placeholder, textarea::placeholder { color: #999; font-style: italic; opacity: 1; }
 input.guess { background: var(--warn-bg); border-color: var(--warn-line); }
 input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible {
   outline: 2px solid var(--chord); outline-offset: 1px;
 }
-.hint { font-size: 0.8rem; color: var(--muted); min-height: 1.2em; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.hint { font-size: 0.8rem; color: var(--muted); min-height: 1.5em; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .hint.warn { color: var(--ink); }
 .chip {
   font: 500 0.8rem var(--f-body); color: var(--chord); background: transparent;
@@ -78,10 +74,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 }
 .chip:hover { border-color: var(--chord); }
 .btn {
-  font: 600 0.95rem var(--f-body); border-radius: 6px; padding: 9px 16px; cursor: pointer;
-  border: 1px solid var(--line); background: var(--panel); color: var(--ink); white-space: nowrap;
+  font: 600 0.95rem var(--f-body); border-radius: 4px; padding: 8px 14px; cursor: pointer;
+  border: 1px solid #b9b9b9; background: var(--panel); color: var(--ink); white-space: nowrap;
 }
+.btn:hover { background: #f5f5f5; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { background: var(--accent-dark); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
@@ -89,10 +87,11 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
 @media (max-width: 860px) { .panes { grid-template-columns: minmax(0,1fr); } }
 .pane { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; display: grid; grid-template-rows: auto 1fr auto; min-width: 0; }
 .pane-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-.pane-head h2 { font: 700 1rem var(--f-display); margin: 0; }
+.pane-head h2 { font-size: 1rem; font-weight: 700; margin: 0; }
 .pane-head > div { display: grid; gap: 2px; min-width: 0; }
 .pane.drop textarea { outline: 2px dashed var(--chord); outline-offset: -6px; }
-label.btn { display: inline-block; text-transform: none; letter-spacing: 0; font: 600 0.95rem var(--f-body); color: var(--ink); }
+label.btn { display: inline-block; font: 600 0.95rem var(--f-body); }
+label.btn.primary { color: var(--accent-ink); }
 .pane-head .small { font-size: 0.8rem; color: var(--muted); }
 textarea {
   font: 400 0.86rem/1.45 var(--f-mono); color: var(--ink); background: var(--panel);
@@ -100,38 +99,43 @@ textarea {
   white-space: pre; overflow: auto; tab-size: 8;
 }
 .pane-foot { padding: 8px 14px; border-top: 1px solid var(--line); font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-.example { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 6px; padding: 6px 10px; font-size: 0.85rem; }
+.example { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 6px; padding: 6px 10px; font-size: 0.9rem; margin: 0; }
+.intro {
+  margin: 0; font-size: 1.05rem; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+  background: #e0f2ef; border: 1px solid #b7dcd4; border-radius: 6px; padding: 10px 14px;
+}
 .example[hidden] { display: none; }
 .linkbtn { background: none; border: 0; color: var(--chord); font: inherit; text-decoration: underline; cursor: pointer; padding: 0; }
 .toast { color: var(--ok); font-weight: 600; }
-.back { color: var(--chord); font-weight: 600; text-decoration: none; white-space: nowrap; }
-.back:hover { text-decoration: underline; }
-.unavailable { font-size: 0.8rem; color: var(--muted); }
+.unavailable { color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) { .btn, .chip { transition: border-color .15s, opacity .15s; } }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="head-text">
-      <h1>Chord sheet <span>→</span> ChordPro</h1>
-      <p class="sub">Paste a chords-over-lyrics sheet from Ultimate Guitar or similar. Chords get folded into the words, sections become “Verse:”.</p>
-    </div>
+<header class="bar">
+  <div class="bar-inner">
+    <h1>ChordPro Generator</h1>
     <div class="actions">
-      <a class="back" href="index.html">← Back to StageChord</a>
-      <button class="btn" id="newSong" type="button">New song</button>
+      <a class="bar-btn" href="index.html">← Back to StageChord</a>
+      <button class="bar-btn" id="newSong" type="button">New song</button>
     </div>
-  </header>
+  </div>
+</header>
+<div class="wrap">
+  <p class="intro" id="intro"><span>Paste a song from a chord website into the box below, or</span>
+    <label class="btn primary" for="pdfFile" id="pdfBtn">Open PDF</label>
+    <span id="pdfAfter">to convert it.</span>
+    <input type="file" id="pdfFile" accept="application/pdf,.pdf" hidden></p>
 
   <section class="details" aria-label="Song details">
     <div class="field">
       <label for="title">Song title</label>
-      <input type="text" id="title" autocomplete="off" placeholder="Type the song title">
+      <input type="text" id="title" autocomplete="off" placeholder="Enter title">
       <div class="hint" id="titleHint"></div>
     </div>
     <div class="field">
       <label for="artist">Artist</label>
-      <input type="text" id="artist" autocomplete="off" placeholder="Optional">
+      <input type="text" id="artist" autocomplete="off" placeholder="Enter artist (optional)">
       <div class="hint">&nbsp;</div>
     </div>
     <div class="field">
@@ -163,23 +167,32 @@ textarea {
     </div>
   </section>
 
-  <p class="example" id="exampleNote">This is a made-up example song so you can see what it does. Paste your sheet on the left to replace it, or <button class="linkbtn" id="clearEx" type="button">clear it</button>.</p>
-
   <p class="example" id="repeatNote" hidden></p>
 
   <div class="panes">
     <section class="pane">
       <div class="pane-head">
-        <div><h2>Pasted sheet</h2><span class="small">Paste chords-over-lyrics text, or open a PDF chart</span></div>
-        <label class="btn" for="pdfFile" id="pdfBtn">Open PDF</label>
-        <input type="file" id="pdfFile" accept="application/pdf,.pdf" hidden>
+        <div><h2>Paste original here</h2><span class="small">Chords above the lyrics, from a chord website or PDF</span></div>
       </div>
-      <textarea id="src" spellcheck="false" aria-label="Pasted chord sheet"></textarea>
+      <textarea id="src" spellcheck="false" aria-label="Paste original here" placeholder="Sample song: paste your song here
+
+[Intro]
+Em   C   G   D
+
+[Verse 1]
+Em              C
+Sample lyrics go here"></textarea>
       <div class="pane-foot" id="srcStats">&nbsp;</div>
     </section>
     <section class="pane">
-      <div class="pane-head"><h2>ChordPro</h2><button class="btn" id="copy" type="button">Copy</button></div>
-      <textarea id="out" spellcheck="false" aria-label="ChordPro output"></textarea>
+      <div class="pane-head"><h2>Converted file – ChordPro</h2><button class="btn" id="copy" type="button">Copy</button></div>
+      <textarea id="out" spellcheck="false" aria-label="Converted file – ChordPro" placeholder="{title: Sample song}
+
+Intro:
+| [Em] [C] [G] [D] |
+
+Verse 1:
+[Em]Sample lyrics [C]go here"></textarea>
       <div class="pane-foot" id="outStats">You can tweak this before downloading. Changing the pasted sheet or title rebuilds it.</div>
     </section>
   </div>
@@ -227,7 +240,8 @@ function detectNumbers(lines) {
   return n >= 2;
 }
 
-function stripBars(t) { return t.replace(/^\|+|\|+$/g, "").replace(/^:\|\||\|\|:$/g, ""); }
+// Bar lines and repeat marks around a token: "|Em", "||:Em", "D:|", ":||"
+function stripBars(t) { return t.replace(/^[|:]+/, "").replace(/[|:]+$/, ""); }
 function isChord(t) { return CHORD_RE.test(t); }
 function isChordToken(tok) {
   const t = stripBars(tok);
@@ -316,8 +330,23 @@ function mergeLine(chordLine, lyric) {
 }
 // Chord-only lines (intros, outros, links): "| [Em] [C] [G] [D] | x2"
 // Chords go between bars; anything that isn't a chord (x2, repeat notes) follows.
+// Repeat marks (|: :| ||: :||) are kept as written, where they were: "||: [E] [E] [E] [E] :||"
+const REPEAT_MARK_RE = /^(?:\|{1,2}:|:\|{1,2})$/;
 function chordOnlyLine(line) {
   const inside = [], after = [];
+  if (/\|:|:\|/.test(line)) {
+    // Split repeat marks off any chord they touch ("||:E" -> "||:", "E")
+    for (const raw of line.replace(/(\|{1,2}:|:\|{1,2})/g, " $1 ").trim().split(/\s+/)) {
+      if (REPEAT_MARK_RE.test(raw) || /^\|{1,2}$/.test(raw)) { inside.push(raw); continue; }
+      const t = stripBars(raw);
+      if (!t) continue;
+      const k = isChordToken(raw);
+      if (k === "chord") inside.push(fmtChordToken(raw));
+      else if (/^\(?n\.?c\.?\)?$/i.test(t)) inside.push("N.C.");
+      else after.push(t);
+    }
+    return inside.join(" ") + (after.length ? " " + after.join(" ") : "");
+  }
   for (const raw of line.trim().split(/\s+/)) {
     const t = stripBars(raw);
     if (!t) continue;                              // bar lines are redrawn below
@@ -709,41 +738,11 @@ const src = $("src"), out = $("out"), titleEl = $("title"), artistEl = $("artist
 let pdfNote = "";
 let titleTouched = false;
 let lastConv = null;
-let isExample = true;
 
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 };
-
-const EXAMPLE = `Harbour Lights chords by The Example Band
-Capo: 2
-
-[Intro]
-Em   C   G   D
-
-[Verse 1]
-Em               C
-Ropes on the bollard and salt on the wind
-G                     D
-Somebody's singing where the old boats begin
-Em                C
-Gulls on the railing, the tide turning in
-G                   D
-Lanterns are glowing again
-
-[Chorus]
-C            G
-Harbour lights, harbour lights
-Em          D
-Bring me home tonight
-C            G
-Harbour lights, harbour lights
-D              Em
-Steady through the night
-
-[Outro]
-C   G   D   Em  x2`;
 
 function setTitleHint(cands, source) {
   const h = $("titleHint");
@@ -786,7 +785,8 @@ function rebuild(fromInput) {
   $("repeatNote").textContent = rep.length
     ? "Page " + rep.join(" and ") + (rep.length > 1 ? " look" : " looks") + " like a repeat of the song. Everything has been kept, so delete the repeat on the right if you don't need it."
     : "";
-  if (fromInput && !titleTouched) {
+  if (!src.value.trim() && !titleTouched) { titleEl.classList.remove("guess"); $("titleHint").textContent = ""; }
+  else if (fromInput && !titleTouched) {
     if (conv.meta.title) {
       titleEl.value = titleCase(conv.meta.title);
       setTitleHint([], "sheet");
@@ -801,7 +801,7 @@ function rebuild(fromInput) {
   out.value = src.value.trim() ? buildChordPro(conv, title || "Untitled", artistEl.value) : "";
   $("srcStats").textContent = src.value.trim()
     ? (pdfNote ? pdfNote + " · " : "") + `${conv.stats.sections} sections · ${conv.stats.chords} chords · ${conv.stats.merged} lines merged`
-    : "Paste a sheet or open a PDF to start.";
+    : "Paste a song or open a PDF to start.";
   updateDownload();
 }
 
@@ -813,7 +813,7 @@ function updateDownload() {
   const ok = titleEl.value.trim() && out.value.trim();
   $("download").disabled = !ok;
   $("addToApp").disabled = !ok;
-  $("dlHint").textContent = !out.value.trim() ? "Paste a sheet first." : !titleEl.value.trim() ? "Add a song title first." : filename();
+  $("dlHint").textContent = !out.value.trim() ? "Paste a song first." : !titleEl.value.trim() ? "Add a song title first." : filename();
 }
 
 // The ChordPro to save, with the title line matching the title box
@@ -851,18 +851,8 @@ function download() {
   h.innerHTML = ""; const s = document.createElement("span"); s.className = "toast"; s.textContent = "Saved " + filename(); h.appendChild(s);
 }
 
-// Drop the sample song. Keeps a title the user typed; clears the sample's artist unless the user set one.
-function dropExample() {
-  if (!isExample) return;
-  isExample = false;
-  $("exampleNote").hidden = true;
-  if (!artistEl.dataset.touched) artistEl.value = "";
-  if (!titleTouched) titleEl.value = "";
-}
-
 // New song: empty everything except a remembered artist, ready to type a title or paste.
 function newSong() {
-  dropExample();
   src.value = ""; titleEl.value = ""; titleTouched = false; pdfNote = "";
   if (!artistEl.dataset.touched) artistEl.value = "";
   titleEl.classList.remove("guess");
@@ -873,13 +863,9 @@ function newSong() {
 
 let timer;
 src.addEventListener("input", () => {
-  dropExample(); pdfNote = "";
+  pdfNote = "";
   clearTimeout(timer); timer = setTimeout(() => rebuild(true), 150);
 });
-src.addEventListener("paste", () => {
-  if (isExample) { src.value = ""; dropExample(); }
-});
-src.addEventListener("focus", () => { if (isExample) { src.select(); } });
 // A title the user typed is never overwritten by a guess. Emptying the box lets it guess again.
 titleEl.addEventListener("input", () => {
   titleTouched = titleEl.value.trim() !== "";
@@ -893,7 +879,6 @@ out.addEventListener("input", updateDownload);
 $("download").addEventListener("click", download);
 $("addToApp").addEventListener("click", addToApp);
 $("newSong").addEventListener("click", newSong);
-$("clearEx").addEventListener("click", newSong);
 $("copy").addEventListener("click", async () => {
   const b = $("copy");
   try { await navigator.clipboard.writeText(out.value); b.textContent = "Copied"; }
@@ -940,7 +925,6 @@ async function openPdf(file) {
     }
     const r = pdfToText(pages, measure);
     if (!r.text.trim()) { status.textContent = "That PDF has no text in it (it may be a scan or photo), so it can't be read here."; return; }
-    if (isExample) dropExample();
     src.value = r.text;
     pdfNote = `${file.name}: ${doc.numPages} page${doc.numPages > 1 ? "s" : ""}${r.columns > 1 ? ", 2 columns" : ""}`
       + (r.ligatures.length ? ` · check: ${[...new Set(r.ligatures)].join(", ")}` : "");
@@ -955,11 +939,8 @@ $("pdfFile").addEventListener("change", (e) => { const f = e.target.files[0]; if
 let pdfSupported = true;
 try { new Function("var a = {}; return a?.b ?? 1"); } catch (e) { pdfSupported = false; }
 if (!pdfSupported) {
-  const note = document.createElement("span");
-  note.className = "unavailable";
-  note.textContent = "PDF conversion isn't available on older devices";
-  $("pdfBtn").replaceWith(note);
-  document.querySelector(".pane-head .small").textContent = "Paste chords-over-lyrics text";
+  $("intro").innerHTML = 'Paste a song from a chord website into the box below. <span class="unavailable">(PDF conversion isn\'t available on older devices.)</span>';
+  document.querySelector(".pane-head .small").textContent = "Chords above the lyrics, from a chord website";
 }
 const srcPane = src.closest(".pane");
 ["dragenter", "dragover"].forEach(t => srcPane.addEventListener(t, (e) => { if ([...e.dataTransfer.types].includes("Files")) { e.preventDefault(); srcPane.classList.add("drop"); } }));
@@ -976,8 +957,7 @@ const savedArtist = store.get("cp_artist");
 if (savedArtist) { artistEl.value = savedArtist; artistEl.dataset.touched = "1"; }
 const savedExt = store.get("cp_ext");
 if (savedExt) extEl.value = savedExt;
-src.value = EXAMPLE;
-rebuild(true);
+rebuild(false);
 </script>
 </body>
 </html>
