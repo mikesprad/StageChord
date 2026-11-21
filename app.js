@@ -1,7 +1,7 @@
 import { parseChordPro, readHeader, writeHeader, classifyLines } from './parser.js?v=20261016T2';
 import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20261016T2';
 import {
-    addSong, getSong, getAllSongs, deleteSong,
+    addSong, addSongIfNew, getSong, getAllSongs, deleteSong,
     getSongState, saveSongState,
     saveSetlist, getSetlist, getAllSetlists, deleteSetlist,
     exportLibrary, importLibrary,
@@ -276,6 +276,68 @@ function transposeChordCore(chord, semitones, targetKeyName) {
     }
 
     return notesPreferred[newIndex] + suffix;
+}
+
+// ── Song key ─────────────────────────────────────────
+// StageChord shows every key as a major key: a minor key is shown as its
+// relative major (Am -> C, F#m -> A).
+
+// "C", "F#", "Am", "Bbm" -> the major key's index (0 = C), or null if it isn't a key.
+function parseKeyName(text) {
+    const m = String(text || '').trim().match(/^([A-G][#b]?)(.*)$/);
+    if (!m || noteEnharmonics[m[1]] === undefined) return null;
+    const minor = /^\s*(m(?!aj)|minor)/.test(m[2]);
+    return (noteEnharmonics[m[1]] + (minor ? 3 : 0)) % 12;
+}
+
+// Works out the key from the chords when the song has no {key:}: the major key
+// whose chords (I ii iii IV V vi vii) fit best, favouring a song that starts or
+// ends on its I or vi chord. Returns the key's index, or null if there are no chords.
+function inferKeyFromChords(lines) {
+    const chords = [];
+    lines.forEach((tokens) => tokens.forEach((t) => {
+        if (t.type !== 'chord') return;
+        const m = t.value.split('/')[0].match(/^([A-G][#b]?)(.*)$/);
+        if (!m || noteEnharmonics[m[1]] === undefined) return;
+        chords.push({
+            root: noteEnharmonics[m[1]],
+            minor: /^m(?!aj)/.test(m[2]),
+            dim: /^(dim|°|ø|m7b5)/.test(m[2])
+        });
+    }));
+    if (!chords.length) return null;
+    const first = chords[0];
+    const last = chords[chords.length - 1];
+    const degree = (c, fam) => (c.root - fam + 12) % 12;
+    const isHome = (c, fam) => !c.dim && (c.minor ? degree(c, fam) === 9 : degree(c, fam) === 0);
+    let best = null;
+    for (let fam = 0; fam < 12; fam++) {
+        let score = 0;
+        chords.forEach((c) => {
+            const d = degree(c, fam);
+            if (c.dim ? d === 11 : c.minor ? [2, 4, 9].indexOf(d) >= 0 : [0, 5, 7].indexOf(d) >= 0) score++;
+        });
+        if (isHome(first, fam)) score += 1.5;
+        if (isHome(last, fam)) score += 1;
+        if (!best || score > best.score) best = { fam: fam, score: score };
+    }
+    return best.fam;
+}
+
+// The song's key, from {key:} or worked out from its chords, allowing for its
+// transpose. originalKeyName / keyName are the original and transposed key names
+// (also used to spell chords with the right sharps or flats). Null if no chords.
+function songKeyInfo(song, parsed) {
+    parsed = parsed || parseChordPro(song.text);
+    let index = parsed.metadata.key ? parseKeyName(parsed.metadata.key) : null;
+    const inferred = index === null;
+    if (inferred) index = inferKeyFromChords(parsed.lines);
+    if (index === null) return null;
+    return {
+        inferred: inferred,
+        originalKeyName: getKeyNameForIndex(index),
+        keyName: getKeyNameForIndex((index + (song.transpose || 0) + 12) % 12)
+    };
 }
 
 const fileInput = document.getElementById('file-input');
@@ -874,6 +936,7 @@ importFromUrlHash().then(imported => {
         renderCurrent();
         updateNav();
     }
+    await importPendingSong();
     // If running as an installed PWA with an empty library, let user know
     if (isStandalone) {
         const libraryId = await ensureCurrentLibraryContext();
@@ -950,31 +1013,71 @@ function handleFiles() {
     Promise.all(promises).then(async (results) => {
         const valid = results.filter(Boolean);
         if (valid.length === 0) return;
-        for (const { name, text } of valid) {
-            const songId = await addSong(name, text, currentLibraryId);
-            // Only add to set if not already in set
-            if (!songs.some(s => s.songId === songId)) {
-                const state = await getSongState(songId) || {};
-                songs.push({
-                    songId,
-                    name,
-                    originalText: text,
-                    text: state.editedText || text,
-                    transpose: state.transpose || 0,
-                    annotation: state.annotation || '',
-                    stave: state.stave || null,
-                    staveTimeSig: state.staveTimeSig || null,
-                });
-            }
-        }
-        if (currentIndex < 0) currentIndex = 0;
-        populateSelect();
-        fileSelect.selectedIndex = currentIndex;
-        renderCurrent();
-        updateNav();
-        saveSessionRef();
+        await addSongsToView(valid);
         fileInput.value = '';
     });
+}
+
+// Add songs ({ name, text }) to the current library and to the songs on screen.
+// Returns the last song's { songId, isNew }.
+async function addSongsToView(items) {
+    let last = null;
+    for (const { name, text } of items) {
+        last = await addSongIfNew(name, text, currentLibraryId);
+        const songId = last.id;
+        // Only add to set if not already in set
+        if (!songs.some(s => s.songId === songId)) {
+            const state = await getSongState(songId) || {};
+            songs.push({
+                songId,
+                name,
+                originalText: text,
+                text: state.editedText || text,
+                transpose: state.transpose || 0,
+                annotation: state.annotation || '',
+                stave: state.stave || null,
+                staveTimeSig: state.staveTimeSig || null,
+            });
+        }
+    }
+    if (currentIndex < 0) currentIndex = 0;
+    populateSelect();
+    fileSelect.selectedIndex = currentIndex;
+    renderCurrent();
+    updateNav();
+    saveSessionRef();
+    return last;
+}
+
+// A song sent from the ChordPro converter (chordpro-converter.html, same site):
+// add it to the current library and open it. If it's already there, just open it.
+const PENDING_SONG_KEY = 'stagechord_pending_song';
+async function importPendingSong() {
+    let pending = null;
+    try {
+        const raw = localStorage.getItem(PENDING_SONG_KEY);
+        if (!raw) return;
+        localStorage.removeItem(PENDING_SONG_KEY);
+        pending = JSON.parse(raw);
+    } catch (_) {
+        return;
+    }
+    if (!pending || typeof pending.text !== 'string' || !pending.text.trim()) return;
+    const name = String(pending.filename || 'Untitled.chopro');
+    try {
+        const result = await addSongsToView([{ name: name, text: pending.text }]);
+        const idx = songs.findIndex((s) => s.songId === result.id);
+        if (idx >= 0) {
+            currentIndex = idx;
+            fileSelect.selectedIndex = currentIndex;
+            renderCurrent();
+            updateNav();
+            saveSessionRef();
+        }
+        if (!result.isNew) alert('That song is already in this library, so it has been opened.');
+    } catch (e) {
+        alert('Could not add the song: ' + e.message);
+    }
 }
 
 function populateSelect() {
@@ -1248,6 +1351,8 @@ function detectSectionType(rawLine) {
     const trimmed = rawLine.trim();
     // Lines wrapped in curly brackets are directives, not headings.
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) return null;
+    // Bar lines are never headings, even with repeat marks: "||: [G] [C] :||".
+    if (trimmed.startsWith('|')) return null;
     // Ignore colons that only appear inside square brackets (chords).
     const withoutBrackets = trimmed.replace(/\[[^\]]*\]/g, '');
     if (!withoutBrackets.includes(':')) return null;
@@ -1304,39 +1409,13 @@ function renderCurrent() {
     const lastSectionAnchors = {};
     const contentLines = rawLines.filter((line, i) => lineInfo.kinds[i] === 'content');
     
-    // Get original key and determine transposed key
-    let originalKeyIndex = 0; // Default to C
-    let transposedKeyIndex = 0;
-    let originalKeyName = 'C';
-    let transposedKeyName = 'C';
-    let hasKey = false;
-    let inferredKey = false;
+    // Original and transposed key (always major: Am is shown as C).
+    const keyInfo = songKeyInfo(song, parsed);
+    const hasKey = !!keyInfo;
+    const inferredKey = hasKey && keyInfo.inferred;
+    const originalKeyName = hasKey ? keyInfo.originalKeyName : 'C';
+    const transposedKeyName = hasKey ? keyInfo.keyName : 'C';
 
-    if (parsed.metadata.key) {
-        const keyNote = (parsed.metadata.key.match(/^([A-G][#b]?)/) || [])[1] || 'C';
-        originalKeyIndex = noteEnharmonics[keyNote] !== undefined ? noteEnharmonics[keyNote] : 0;
-        originalKeyName = keyNote;
-        hasKey = true;
-    } else {
-        for (const lineTokens of parsed.lines) {
-            const chordToken = lineTokens.find((token) => token.type === 'chord');
-            if (!chordToken) continue;
-            const keyNote = (chordToken.value.match(/^([A-G][#b]?)/) || [])[1];
-            if (keyNote && noteEnharmonics[keyNote] !== undefined) {
-                originalKeyIndex = noteEnharmonics[keyNote];
-                originalKeyName = keyNote;
-                inferredKey = true;
-                hasKey = true;
-                break;
-            }
-        }
-    }
-
-    if (hasKey) {
-        transposedKeyIndex = (originalKeyIndex + song.transpose + 12) % 12;
-        transposedKeyName = getKeyNameForIndex(transposedKeyIndex);
-    }
-    
     // Display metadata
     if (parsed.metadata.title) {
         if (currentSongTitle) {
@@ -1348,7 +1427,7 @@ function renderCurrent() {
     if (hasKey) {
         const keyLabel = inferredKey ? 'Key (inferred): ' : 'Key: ';
         if (currentSongKey) {
-            currentSongKey.appendChild(document.createTextNode(`${keyLabel}${transposeChord(originalKeyName, song.transpose, transposedKeyName)} `));
+            currentSongKey.appendChild(document.createTextNode(`${keyLabel}${transposedKeyName} `));
         }
         
         const downBtn = document.createElement('button');
@@ -1438,16 +1517,12 @@ function renderCurrent() {
     });
     btnGroup.appendChild(staveBtn);
 
-    // Edit button (chords, key, tempo)
+    // Edit button (chords and lyrics; key and tempo are in Edit info)
     const editChordsBtn = document.createElement('button');
     editChordsBtn.textContent = chordEditMode ? '✓ Done' : '✎ Edit song';
     editChordsBtn.className = 'annotate-btn' + (chordEditMode ? ' active-edit' : '');
-    editChordsBtn.title = 'Edit chords, lyrics, key and tempo';
+    editChordsBtn.title = 'Edit chords and lyrics';
     editChordsBtn.addEventListener('click', () => {
-        // If leaving edit mode, save key/tempo from input fields
-        if (chordEditMode) {
-            saveEditMetaFields(song);
-        }
         chordEditMode = !chordEditMode;
         dismissChordPopup();
         const editTip = document.getElementById('edit-tip');
@@ -1475,51 +1550,6 @@ function renderCurrent() {
     if (fontControls) {
         fontControls.classList.add('in-meta-btn-group');
         btnGroup.appendChild(fontControls);
-    }
-
-    // Key/Tempo editor — shown as first line in song view when in edit mode
-    if (chordEditMode) {
-        const editRow = document.createElement('div');
-        editRow.className = 'edit-meta-row';
-
-        // Key editor — blank for inferred keys so user can write the correct one
-        const keyLabel = document.createElement('label');
-        keyLabel.textContent = 'Key: ';
-        keyLabel.className = 'edit-meta-label';
-        const keyInput = document.createElement('input');
-        keyInput.type = 'text';
-        keyInput.className = 'edit-meta-input';
-        keyInput.id = 'edit-key-input';
-        keyInput.placeholder = hasKey ? transposedKeyName : 'e.g. G';
-        // Only pre-fill if key is explicitly set in the file (not inferred)
-        keyInput.value = (hasKey && !inferredKey) ? transposedKeyName : '';
-        keyInput.size = 4;
-        keyInput.addEventListener('change', () => {
-            saveEditMetaFields(song);
-        });
-        keyLabel.appendChild(keyInput);
-        editRow.appendChild(keyLabel);
-
-        // Tempo editor
-        const tempoLabel = document.createElement('label');
-        tempoLabel.textContent = 'Tempo: ';
-        tempoLabel.className = 'edit-meta-label';
-        const tempoInput = document.createElement('input');
-        tempoInput.type = 'number';
-        tempoInput.className = 'edit-meta-input';
-        tempoInput.id = 'edit-tempo-input';
-        tempoInput.placeholder = parsed.metadata.tempo || 'bpm';
-        tempoInput.value = parsed.metadata.tempo || '';
-        tempoInput.min = 20;
-        tempoInput.max = 300;
-        tempoInput.size = 5;
-        tempoInput.addEventListener('change', () => {
-            saveEditMetaFields(song);
-        });
-        tempoLabel.appendChild(tempoInput);
-        editRow.appendChild(tempoLabel);
-
-        songView.appendChild(editRow);
     }
 
     // Show annotation box if annotation exists
@@ -1798,9 +1828,8 @@ function dismissChordPopup() {
     }
 }
 
-// Save key/tempo from edit input fields into song text
-// Key and tempo have their own inputs in edit mode (key handles transposition),
-// so the details editor leaves them alone.
+// Key and tempo have their own fields at the top of Edit info (the key allows
+// for transposition), so they don't appear as plain info rows.
 const DETAILS_MANAGED_KEYS = ['key', 'tempo'];
 
 // Song name + header metadata editor. Plain DOM overlay (no <dialog>) so it works
@@ -1839,6 +1868,40 @@ function openSongDetailsEditor(song, focusTitle) {
     titleInput.value = titleEntry.value || (parseChordPro(song.text).metadata.title ? '' : song.name.replace(/\.[^.]+$/, ''));
     titleLabel.appendChild(titleInput);
     panel.appendChild(titleLabel);
+
+    // Key and tempo, working as they did in Edit mode.
+    const shownKey = displayedKey(song);
+    const keyTempoRow = document.createElement('div');
+    keyTempoRow.className = 'song-details-keytempo';
+    const keyLabel = document.createElement('label');
+    keyLabel.className = 'song-details-label';
+    keyLabel.textContent = 'Key';
+    const keyInput = document.createElement('input');
+    keyInput.type = 'text';
+    keyInput.id = 'song-details-key';
+    keyInput.setAttribute('autocapitalize', 'off');
+    keyInput.setAttribute('autocorrect', 'off');
+    keyInput.placeholder = shownKey.name || 'e.g. G';
+    keyInput.value = shownKey.explicit ? shownKey.name : '';
+    keyLabel.appendChild(keyInput);
+    const tempoLabel = document.createElement('label');
+    tempoLabel.className = 'song-details-label';
+    tempoLabel.textContent = 'Tempo';
+    const tempoInput = document.createElement('input');
+    tempoInput.type = 'number';
+    tempoInput.id = 'song-details-tempo';
+    tempoInput.min = 20;
+    tempoInput.max = 300;
+    tempoInput.placeholder = 'bpm';
+    tempoInput.value = parseChordPro(song.text).metadata.tempo || '';
+    tempoLabel.appendChild(tempoInput);
+    keyTempoRow.appendChild(keyLabel);
+    keyTempoRow.appendChild(tempoLabel);
+    panel.appendChild(keyTempoRow);
+    const keyNote = document.createElement('div');
+    keyNote.className = 'song-details-note';
+    keyNote.textContent = 'The key the chords on screen are in. Changing it doesn’t change the chords.';
+    panel.appendChild(keyNote);
 
     const rowsBox = document.createElement('div');
     rowsBox.className = 'song-details-rows';
@@ -1912,10 +1975,11 @@ function openSongDetailsEditor(song, focusTitle) {
             if (e.isNew && !String(e.value || '').trim()) return false;
             return true;
         });
-        const nextText = writeHeader(song.text, next);
+        const before = song.text;
+        song.text = writeHeader(song.text, next);
+        applyKeyTempo(song, keyInput.value, tempoInput.value);
         overlay.remove();
-        if (nextText === song.text) return;
-        song.text = nextText;
+        if (song.text === before) return;
         await saveSongStateToDB(song);
         saveSessionRef();
         populateSelect();
@@ -1938,37 +2002,39 @@ function openSongDetailsEditor(song, focusTitle) {
     if (focusTitle) titleInput.focus();
 }
 
-function saveEditMetaFields(song) {
-    const keyInput = document.getElementById('edit-key-input');
-    const tempoInput = document.getElementById('edit-tempo-input');
+// The key as shown on screen (the file's key plus the song's transpose).
+// explicit is false when there's no {key:} and it was worked out from the chords.
+function displayedKey(song) {
+    const info = songKeyInfo(song);
+    if (!info) return { name: '', explicit: false };
+    return { name: info.keyName, explicit: !info.inferred };
+}
+
+// Apply the Key and Tempo fields from Edit info to song.text. The key typed is
+// the key as shown on screen, so it's stored relative to the song's transpose:
+// it relabels the song and never moves the chords. A blank key is left alone;
+// a blank tempo removes it. Returns true if the text changed.
+function applyKeyTempo(song, keyValue, tempoValue) {
     let changed = false;
 
-    if (keyInput) {
-        const newKey = keyInput.value.trim();
+    if (keyValue !== null) {
+        const newKey = String(keyValue).trim();
         if (newKey) {
-            const keyMatch = newKey.match(/^([A-G][#b]?)/);
-            if (keyMatch) {
-                const displayKey = keyMatch[1];
-                const displayIndex = noteEnharmonics[displayKey];
-                if (displayIndex !== undefined) {
-                    const storedIndex = (displayIndex - (song.transpose || 0) + 12) % 12;
-                    const storedKeyName = getKeyNameForIndex(storedIndex);
-                    // Keep the existing key's spelling and suffix (e.g. "Gm") unless
-                    // the note itself changed; then swap just the note.
-                    const existingKey = parseChordPro(song.text).metadata.key || '';
-                    const existingRootMatch = existingKey.match(/^([A-G][#b]?)/);
-                    const existingRoot = existingRootMatch ? existingRootMatch[1] : '';
-                    if (!existingRoot || noteEnharmonics[existingRoot] !== storedIndex) {
-                        const suffix = existingRoot ? existingKey.slice(existingRoot.length) : '';
-                        if (updateSongMetadata(song, 'key', storedKeyName + suffix)) changed = true;
-                    }
+            // Typing a minor key stores its relative major ("Am" -> C).
+            const typed = parseKeyName(newKey);
+            if (typed !== null) {
+                const storedIndex = (typed - (song.transpose || 0) + 12) % 12;
+                const existing = parseKeyName(parseChordPro(song.text).metadata.key);
+                // Keep the existing key's text unless it's a different key.
+                if (existing !== storedIndex) {
+                    if (updateSongMetadata(song, 'key', getKeyNameForIndex(storedIndex))) changed = true;
                 }
             }
         }
     }
 
-    if (tempoInput) {
-        const val = tempoInput.value.trim();
+    if (tempoValue !== null) {
+        const val = String(tempoValue).trim();
         if (val && !isNaN(val) && val >= 20 && val <= 300) {
             if (updateSongMetadata(song, 'tempo', val)) changed = true;
         } else if (!val) {
@@ -1976,10 +2042,7 @@ function saveEditMetaFields(song) {
             if (removeSongMetadata(song, 'tempo')) changed = true;
         }
     }
-
-    if (changed) {
-        saveSongStateToDB(song);
-    }
+    return changed;
 }
 
 // Update or insert a metadata directive in the song text (e.g. {key: G}, {tempo: 120})

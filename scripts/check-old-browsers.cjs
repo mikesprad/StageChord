@@ -8,7 +8,8 @@ const path = require('path');
 
 // Our own code only. vexflow.bundle.js is third-party and loaded on demand, with
 // a fallback in stave.js when it can't load.
-const FILES = ['app.js', 'db.js', 'parser.js', 'stave.js', 'service-worker.js', 'index.html', 'help.html'];
+// chordpro-converter.html is checked so pasting works on old iPads (its PDF reader needs a newer browser and says so).
+const FILES = ['app.js', 'db.js', 'parser.js', 'stave.js', 'service-worker.js', 'index.html', 'help.html', 'chordpro-converter.html'];
 
 // Browser APIs newer than Safari 12 (add to this list as you find more).
 const NEW_APIS = new Set(['fromEntries', 'replaceAll', 'matchAll', 'allSettled', 'structuredClone',
