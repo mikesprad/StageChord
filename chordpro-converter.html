@@ -251,7 +251,7 @@ function numToChord(t) {
 function detectNumbers(lines) {
   let n = 0;
   for (const l of lines) {
-    const toks = l.trim().split(/\s+/).map(stripBars).filter(Boolean);
+    const toks = l.trim().split(/\s+/).map(stripBars).filter(Boolean).map(t => t.replace(/^\((.*)\)$/, "$1"));
     if (toks.length && toks.every(t => NUM_RE.test(t) || EXTRA_RE.test(t)) && toks.some(t => NUM_RE.test(t))) n++;
   }
   return n >= 2;
@@ -259,9 +259,17 @@ function detectNumbers(lines) {
 
 // Bar lines and repeat marks around a token: "|Em", "||:Em", "D:|", ":||"
 function stripBars(t) { return t.replace(/^[|:]+/, "").replace(/[|:]+$/, ""); }
+// A passing chord in brackets, "(5/7)" or "(Em)", is written as a plain chord: other ChordPro
+// apps may not cope with brackets. Only a whole-token pair goes ("C(4)" keeps its own).
+function unbracket(t) {
+  if (!/^\(.*\)$/.test(t)) return t;
+  const inner = t.slice(1, -1);
+  if (/[()]/.test(inner.replace(/\([^()]*\)/g, ""))) return t;   // unbalanced: leave it
+  return (NUM.on && NUM_RE.test(inner)) || CHORD_RE.test(inner) ? inner : t;
+}
 function isChord(t) { return CHORD_RE.test(t); }
 function isChordToken(tok) {
-  const t = stripBars(tok);
+  const t = unbracket(stripBars(tok));
   if (t === "" ) return "extra";
   if (isNumChord(t)) return "chord";
   if (isChord(t)) return "chord";
@@ -283,7 +291,7 @@ function isChordLine(line) {
   return chords > 0;
 }
 function fmtChordToken(tok) {
-  const t = stripBars(tok);
+  const t = unbracket(stripBars(tok));
   if (isNumChord(t)) return "[" + numToChord(t) + "]";
   if (isChord(t)) return "[" + t + "]";
   const parts = t.split(/([|\-])/);
@@ -383,7 +391,9 @@ function chordOnlyLine(line) {
 
 // ---- Song info lines (header and footer) ----
 // "Key: Ab", "Key - Ab | Tempo - 75 | Time - 4/4", "Key: Ab BPM: 75 Time: 4/4"
-const FIELDS_LINE_RE = /^\s*(?:key|tempo|bpm|time(?:\s*signature)?)\s*[:\-]/i;
+const FIELDS_LINE_RE = /^\s*(?:(?:original\s+)?key|tempo|bpm|time(?:\s*signature)?)\s*[:\-]/i;
+// A time signature on its own line in the header ("4/4"), not a chord
+const TIME_ONLY_RE = /^\s*((?:2|3|4|5|6|7|9|12)\/(?:2|4|8))\s*$/;
 // Keys are always major, as in StageChord: a minor key becomes its relative major (Am -> C)
 function toMajorKey(k) {
   const m = String(k).trim().replace("♯", "#").replace("♭", "b").match(/^([A-G][#b]?)\s*(m(?!aj)|min|minor)?$/);
@@ -397,7 +407,8 @@ function toMajorKey(k) {
 function readFields(l) {
   if (!FIELDS_LINE_RE.test(l)) return null;
   const f = {}; let m;
-  if ((m = l.match(/\bkey\s*[:\-]\s*([A-G][#b♯♭]?m?)(?![A-Za-z0-9#])/i))) f.key = toMajorKey(m[1]);
+  // "Original Key: E" is only used when the sheet gives no plain key (see origKey)
+  if ((m = l.match(/\bkey\s*[:\-]\s*([A-G][#b♯♭]?m?)(?![A-Za-z0-9#])/i))) f[/^\s*original\b/i.test(l) ? "origKey" : "key"] = toMajorKey(m[1]);
   if ((m = l.match(/\b(?:tempo|bpm)\s*[:\-]?\s*(\d{2,3})\b/i))) f.tempo = m[1];
   if ((m = l.match(/\btime(?:\s*signature)?\s*[:\-]?\s*(\d{1,2}\/\d{1,2})/i))) f.time = m[1];
   return f;
@@ -412,7 +423,7 @@ const LICENCE_RE = /(all rights reserved|used by permission|for use solely with|
 const CCLI_RE = /^\s*ccli\s*(?:song)?\s*(?:#|no\.?|number)?\s*:?\s*(\d{3,})\s*(.*)$/i;
 // "Joe L Barnes | Joshua Holiday | Steven Furtick": names split by " | ", no numbers
 const NAMES_LIST_RE = /^\s*[A-Z][^|\d]*(?:\s\|\s[A-Z][^|\d]*)+\s*$/;
-function isInfoLine(l) { return !!(readFields(l) || WRITERS_RE.test(l) || NAMES_LIST_RE.test(l) || BASED_ON_RE.test(l) || /^\s*capo\b/i.test(l)); }
+function isInfoLine(l) { return !!(readFields(l) || TIME_ONLY_RE.test(l) || WRITERS_RE.test(l) || NAMES_LIST_RE.test(l) || BASED_ON_RE.test(l) || /^\s*capo\b/i.test(l)); }
 // "(based on the recording by Elevation Rhythm | original key: B)" -> "Elevation Rhythm"
 function artistFrom(s) { return s.split(/\s*\|\s*/)[0].trim(); }
 
@@ -426,7 +437,13 @@ function convert(raw, opts = {}) {
   const meta = { title: "", artist: "", key: "", capo: "", tempo: "", time: "", composer: "", copyright: "", ccli: "" };
   // Number charts are converted in the sheet's own key when it gives one, otherwise the chosen key (C by default)
   let sheetKey = "";
-  for (const l of lines) { const f = readFields(l); if (f && f.key) { sheetKey = f.key; break; } }
+  let origKey = "";
+  for (const l of lines) {
+    const f = readFields(l);
+    if (f && f.origKey && !origKey) origKey = f.origKey;
+    if (f && f.key) { sheetKey = f.key; break; }
+  }
+  if (!sheetKey) sheetKey = origKey;
   const userKey = typeof opts.key === "string" ? toMajorKey(opts.key) : null;   // null: not set by the user
   const root = ((userKey || sheetKey).match(/^[A-G][#b♯♭]?/) || ["C"])[0].replace("♯", "#").replace("♭", "b");
   NUM.key = root;
@@ -492,8 +509,10 @@ function convert(raw, opts = {}) {
     if (/^\s*(?:capo\s*[:\-]?\s*(?:none|no capo)|no capo)\s*$/i.test(l)) continue;
     // Key, tempo and time, on one line or several. The first value found wins (later pages repeat them).
     const f = readFields(l);
+    if (!f && !started && TIME_ONLY_RE.test(l)) { if (!meta.time) meta.time = l.trim(); continue; }
     if (f) {
       if (f.key && !meta.key) meta.key = f.key;
+      if (f.origKey && !meta.origKey) meta.origKey = f.origKey;
       if (f.tempo && !meta.tempo) meta.tempo = f.tempo;
       if (f.time && !meta.time) meta.time = f.time;
       continue;
@@ -577,6 +596,8 @@ function convert(raw, opts = {}) {
     push(l.replace(/\uE000/g, "").trim());
     lyricLines.push({ text: l.replace(/\uE000/g, "").trim(), section, page });
   }
+  if (!meta.key && meta.origKey) meta.key = meta.origKey;
+  delete meta.origKey;
   while (out.length && out[0] === "") out.shift();
   while (out.length && out[out.length - 1] === "") out.pop();
   // Later pages that start with page 1's lyrics (e.g. the song again as a number chart): kept, but flagged
@@ -618,10 +639,18 @@ function buildChordPro(conv, title, artist) {
 // pages: [{width, items:[{str, x, y, w}]}] with y measured upwards (PDF space).
 // measure(str) returns a relative width for proportional placement; falls back to character count.
 const PAD = "\uE000";  // lyric padding used while lining chords up; stripped from the output
+// Words spelt with ff, ffi or ffl, plus endings: "offer", "sufferings", "off"
+const FF_WORDS = /^(?:off|offer|offend|offen[cs]e|offensive|office|officer|official|offspring|suffer|sufferance|suffice|sufficient|differ|different|difference|difficult|difficulty|effect|effective|effort|efficient|affect|affection|afford|affirm|afflict|affliction|affluent|baffle|waffle|shuffle|scuffle|ruffle|muffle|stuff|staff|cliff|chaff|scoff|bluff|gruff|puff|sniff|stiff|snuff|coffee|coffin|traffic|buffet|scaffold|sheriff|giraffe|raffle|tariff|effigy)(?:s|es|ed|d|ing|ings|er|ers|ered|ering|erings|ly|y)?$/i;
 function fixLigatures(s, found) {
-  return s.replace(/([A-Za-z]*)\u0000([A-Za-z]*)/g, (all, before, rest) => {
-    // Unmapped fi/fl ligature glyphs come through as NUL. Guess from the letters that follow.
-    const lig = /^(eld|erc|ery|end)/.test(rest) ? "fi" : /^[eoauy]/.test(rest) ? "fl" : "fi";
+  return s.replace(/([A-Za-z]*)\u0000([A-Za-z]*)/g, (all, before, rest, offset) => {
+    // Unmapped fi/fl/ff ligature glyphs come through as NUL. Words spelt with ff/ffi/ffl are
+    // looked up; otherwise guess from the letters around it. "…ied" is far more common than "fled",
+    // including mid-word after a syllable split ("magni - fied").
+    const midWord = !before && /[A-Za-z]\s+-\s+$/.test(s.slice(0, offset));
+    const ff = ["ffi", "ffl", "ff"].filter(l => FF_WORDS.test(before + l + rest))[0];
+    const lig = ff ? ff
+      : /^ed/.test(rest) && (before || midWord) ? "fi"
+      : /^(eld|erc|ery|end)/.test(rest) ? "fi" : /^[eoauy]/.test(rest) ? "fl" : "fi";
     found.push(before + lig + rest);
     return before + lig + rest;
   });
@@ -735,11 +764,15 @@ function pdfToText(pages, measure) {
     if (!(rightCount >= 8 && best <= Math.max(3, runs.length * 0.03))) split = null;
     if (split === null) { outLines.push(...linesOf(items), ""); return; }
     columns = 2;
-    const full = flat(runs.filter(r => r.x < split && r.x + r.w > split));
-    const left = flat(runs.filter(r => r.x + r.w <= split));
-    const right = flat(runs.filter(r => r.x >= split));
-    const colTop = Math.max(...right.map(i => i.y));
-    const header = full.filter(i => i.y > colTop), footer = full.filter(i => i.y <= colTop);
+    const rightRuns = runs.filter(r => r.x >= split);
+    const colTop = Math.max(...flat(rightRuns).map(i => i.y));
+    // Everything above the right column is the header, wide or not: a short title on the left
+    // ("Fresh Wind") belongs above the writers line that runs across the page
+    const below = runs.filter(r => r.y <= colTop);
+    const header = flat(runs.filter(r => r.y > colTop));
+    const left = flat(below.filter(r => r.x + r.w <= split));
+    const right = flat(rightRuns);
+    const footer = flat(below.filter(r => r.x < split && r.x + r.w > split));
     outLines.push(...linesOf(header), ...linesOf(left), "", ...linesOf(right), "", ...linesOf(footer), "");
   });
   NUM.on = wasOn;

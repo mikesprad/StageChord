@@ -543,10 +543,13 @@ let pinchStartDistance = 0;
 let pinchFrame = null;
 function pinchTo(scale) {
     if (pinchBaseSize === null || !(scale > 0)) return;
+    // Worked out now, not in the frame: the fingers may lift (clearing pinchBaseSize)
+    // before the frame runs, and the last step of the pinch must still apply
+    const size = pinchBaseSize * scale;
     if (pinchFrame) cancelAnimationFrame(pinchFrame);
     pinchFrame = requestAnimationFrame(() => {
         pinchFrame = null;
-        if (pinchBaseSize !== null) applyFontSize(pinchBaseSize * scale);
+        applyFontSize(size);
     });
 }
 // Safari's gesture events win when they fire; two-finger touch covers everything else.
