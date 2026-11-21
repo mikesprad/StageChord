@@ -61,6 +61,7 @@ input[type=text], select {
   font: 16px var(--f-body); color: var(--ink); background: var(--panel);
   border: 1px solid #b9b9b9; border-radius: 4px; padding: 7px 9px; width: 100%; min-width: 0;
 }
+#key { width: 6rem; }
 input::placeholder, textarea::placeholder { color: #999; font-style: italic; opacity: 1; }
 input.guess { background: var(--warn-bg); border-color: var(--warn-line); }
 input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible {
@@ -139,12 +140,9 @@ textarea {
       <div class="hint">&nbsp;</div>
     </div>
     <div class="field">
-      <label for="numKey">Number charts in</label>
-      <select id="numKey">
-        <option>C</option><option>Db</option><option>D</option><option>Eb</option><option>E</option><option>F</option>
-        <option>F#</option><option>G</option><option>Ab</option><option>A</option><option>Bb</option><option>B</option>
-      </select>
-      <div class="hint" id="numHint">For 1–7 chord charts</div>
+      <label for="key">Key</label>
+      <input type="text" id="key" autocomplete="off" autocapitalize="off" placeholder="e.g. G" size="5">
+      <div class="hint">&nbsp;</div>
     </div>
     <div class="field">
       <label for="ext">File type</label>
@@ -185,8 +183,8 @@ Sample lyrics go here"></textarea>
       <div class="pane-foot" id="srcStats">&nbsp;</div>
     </section>
     <section class="pane">
-      <div class="pane-head"><h2>Converted file – ChordPro</h2><button class="btn" id="copy" type="button">Copy</button></div>
-      <textarea id="out" spellcheck="false" aria-label="Converted file – ChordPro" placeholder="{title: Sample song}
+      <div class="pane-head"><h2>Converted file - ChordPro</h2><button class="btn" id="copy" type="button">Copy</button></div>
+      <textarea id="out" spellcheck="false" aria-label="Converted file - ChordPro" placeholder="{title: Sample song}
 
 Intro:
 | [Em] [C] [G] [D] |
@@ -389,7 +387,9 @@ function convert(raw, opts = {}) {
   // Number charts are converted in the sheet's own key when it gives one, otherwise the chosen key (C by default)
   let sheetKey = "";
   for (const l of lines) { const f = readFields(l); if (f && f.key) { sheetKey = f.key; break; } }
-  NUM.key = sheetKey ? sheetKey.replace(/m$/, "").replace("♯", "#").replace("♭", "b") : (opts.numbersKey || "C");
+  const userKey = typeof opts.key === "string" ? opts.key.trim() : null;   // null: not set by the user
+  const root = ((userKey || sheetKey).match(/^[A-G][#b♯♭]?/) || ["C"])[0].replace("♯", "#").replace("♭", "b");
+  NUM.key = root;
   NUM.on = detectNumbers(lines);
 
   // CCLI SongSelect sheets: title on line 1, writers on line 2, licence footer at the end
@@ -536,7 +536,7 @@ function convert(raw, opts = {}) {
     const start = lyricLines.filter(x => x.page === p).slice(0, 3).map(x => norm(x.text));
     if (start.length === 3 && firstPage.indexOf(start.join("\n")) === 0) repeatPages.push(p);
   }
-  return { body: out, meta, lyricLines, stats, numbers: NUM.on, numbersKey: NUM.key, sheetKey, repeatPages };
+  return { body: out, meta, lyricLines, stats, numbers: NUM.on, numbersKey: NUM.key, sheetKey, userKey, repeatPages };
 }
 
 const SMALL = new Set("a an and as at but by for in of on or the to vs via".split(" "));
@@ -601,8 +601,10 @@ function buildChordPro(conv, title, artist) {
   head.push("{title: " + title.trim() + "}");
   if (artist.trim()) head.push("{artist: " + artist.trim() + "}");
   if (conv.meta.composer) head.push("{composer: " + conv.meta.composer + "}");
-  // Never a default key: the sheet's key, or for a number chart the key the numbers were converted in
-  const key = conv.meta.key || (conv.numbers ? conv.numbersKey : "");
+  // Never a default key: the key box if the user set it (blank means none), else the sheet's key,
+  // else for a number chart the key the numbers were converted in (C)
+  const key = conv.userKey !== null && conv.userKey !== undefined ? conv.userKey
+    : conv.meta.key || (conv.numbers ? conv.numbersKey : "");
   if (key) head.push("{key: " + key + "}");
   if (conv.meta.capo) head.push("{capo: " + conv.meta.capo + "}");
   if (conv.meta.tempo) head.push("{tempo: " + conv.meta.tempo + "}");
@@ -734,7 +736,8 @@ function pdfToText(pages, measure) {
 // ===== CORE END =====
 
 const $ = (id) => document.getElementById(id);
-const src = $("src"), out = $("out"), titleEl = $("title"), artistEl = $("artist"), extEl = $("ext"), numKeyEl = $("numKey");
+const src = $("src"), out = $("out"), titleEl = $("title"), artistEl = $("artist"), extEl = $("ext"), keyEl = $("key");
+let keyTouched = false;
 let pdfNote = "";
 let titleTouched = false;
 let lastConv = null;
@@ -774,12 +777,10 @@ function setTitleHint(cands, source) {
 }
 
 function rebuild(fromInput) {
-  const conv = convert(src.value, { numbersKey: numKeyEl.value });
+  const conv = convert(src.value, { key: keyTouched ? keyEl.value : null });
   lastConv = conv;
-  numKeyEl.disabled = !!(conv.numbers && conv.sheetKey);
-  $("numHint").textContent = !conv.numbers ? "For 1–7 chord charts"
-    : conv.sheetKey ? "Numbers found: using the sheet's key, " + conv.numbersKey
-    : "Numbers found: 1 = " + conv.numbersKey;
+  // The key box shows the key that will be written: the sheet's, or C for a number chart without one
+  if (!keyTouched) keyEl.value = src.value.trim() ? (conv.meta.key || (conv.numbers ? conv.numbersKey : "")) : "";
   const rep = conv.repeatPages;
   $("repeatNote").hidden = !rep.length;
   $("repeatNote").textContent = rep.length
@@ -841,7 +842,8 @@ function addToApp() {
 function download() {
   if ($("download").disabled) return;
   const text = finalText();
-  const blob = new Blob([text.replace(/\n/g, "\r\n")], { type: "text/plain;charset=utf-8" });
+  // Not text/plain: phones (Android Chrome, iOS Safari) add ".txt" to those, giving "Song.chopro.txt"
+  const blob = new Blob([text.replace(/\n/g, "\r\n")], { type: "application/octet-stream" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = filename();
@@ -854,6 +856,7 @@ function download() {
 // New song: empty everything except a remembered artist, ready to type a title or paste.
 function newSong() {
   src.value = ""; titleEl.value = ""; titleTouched = false; pdfNote = "";
+  keyEl.value = ""; keyTouched = false;
   if (!artistEl.dataset.touched) artistEl.value = "";
   titleEl.classList.remove("guess");
   $("titleHint").textContent = "";
@@ -949,9 +952,8 @@ srcPane.addEventListener("drop", (e) => {
   const f = pdfSupported && [...e.dataTransfer.files].find(f => /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name));
   if (f) { e.preventDefault(); openPdf(f); }
 });
-numKeyEl.addEventListener("change", () => { store.set("cp_numkey", numKeyEl.value); rebuild(false); });
-const savedNumKey = store.get("cp_numkey");
-if (savedNumKey) numKeyEl.value = savedNumKey;
+// A key typed here is never replaced by the sheet's (blank means no key). New song resets it.
+keyEl.addEventListener("input", () => { keyTouched = true; rebuild(false); });
 
 const savedArtist = store.get("cp_artist");
 if (savedArtist) { artistEl.value = savedArtist; artistEl.dataset.touched = "1"; }

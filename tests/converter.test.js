@@ -116,3 +116,19 @@ describe('converter: repeat marks', () => {
     expect(conv.body).toContain('| [Em] [C] [G] [D] | x2');
   });
 });
+
+describe('converter: key box', () => {
+  const NUMBERS = 'Key: Ab\nVerse:\n1        4\nRopes on the bollard\n5     1\nSalt on the wind';
+
+  it('a key typed in the box wins, and number charts use it', () => {
+    const conv = convert(NUMBERS, { key: 'G' });
+    const out = buildChordPro(conv, 'T', '');
+    expect(out).toMatch(/^\{key: G\}$/m);
+    expect(out).toContain('[G]Ropes on [C]the bollard');
+  });
+
+  it('an emptied key box means no key', () => {
+    const conv = convert('Key: Ab\nVerse:\nAb\nRopes on the bollard', { key: '' });
+    expect(buildChordPro(conv, 'T', '')).not.toMatch(/\{key:/);
+  });
+});
