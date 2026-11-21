@@ -1,6 +1,6 @@
 // Header metadata is hidden (even unclosed or multi-line), and the song name and
 // details can be edited in Edit mode and are stored as an edit.
-import { test, expect, openApp, addSongsToLibrary, songState } from './helpers.js';
+import { test, expect, openApp, addSongsToLibrary, songState, transposeBy, expectKey, chordLocator } from './helpers.js';
 
 const SONG = { file: 'metadata-test.chopro', title: 'Metadata Test' };
 
@@ -81,4 +81,32 @@ test('"Edit info" wraps flush left, in line with +Memo, on a narrow screen', asy
         expect(Math.abs(info.x - memo.x), `at ${width}px`).toBeLessThan(1);
     }
     expect(sawOwnLine).toBe(true);
+});
+
+test('key and tempo are edited in Edit info; the key relabels the song without moving chords', async ({ page }) => {
+    await openApp(page);
+    await addSongsToLibrary(page, [SONG]); // {key: G}, {tempo: 90, chord [G]
+    await transposeBy(page, 2);
+    await expectKey(page, 'A');
+    await expect(chordLocator(page).first()).toHaveText('A');
+
+    // Edit mode no longer has key or tempo fields.
+    await page.getByRole('button', { name: '✎ Edit song' }).click();
+    await expect(page.locator('#edit-key-input')).toHaveCount(0);
+    await page.getByRole('button', { name: '✓ Done' }).click();
+
+    await page.getByRole('button', { name: 'Edit info' }).click();
+    await expect(page.locator('#song-details-key')).toHaveValue('A');
+    await expect(page.locator('#song-details-tempo')).toHaveValue('90');
+    // The key shown on screen is really Bb: correct it, and change the tempo.
+    await page.locator('#song-details-key').fill('Bb');
+    await page.locator('#song-details-tempo').fill('100');
+    await page.locator('#song-details-panel').getByRole('button', { name: 'Save' }).click();
+
+    await expectKey(page, 'Bb');
+    await expect(chordLocator(page).first()).toHaveText('A'); // chords unchanged
+    const state = await songState(page, SONG);
+    expect(state.editedText).toContain('{key: Ab}'); // stored relative to the +2 transpose
+    expect(state.editedText).toContain('{tempo: 100}');
+    expect(state.transpose).toBe(2);
 });

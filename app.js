@@ -1,7 +1,7 @@
 import { parseChordPro, readHeader, writeHeader, classifyLines } from './parser.js?v=20261016T2';
 import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20261016T2';
 import {
-    addSong, getSong, getAllSongs, deleteSong,
+    addSong, addSongIfNew, getSong, getAllSongs, deleteSong,
     getSongState, saveSongState,
     saveSetlist, getSetlist, getAllSetlists, deleteSetlist,
     exportLibrary, importLibrary,
@@ -874,6 +874,7 @@ importFromUrlHash().then(imported => {
         renderCurrent();
         updateNav();
     }
+    await importPendingSong();
     // If running as an installed PWA with an empty library, let user know
     if (isStandalone) {
         const libraryId = await ensureCurrentLibraryContext();
@@ -950,31 +951,71 @@ function handleFiles() {
     Promise.all(promises).then(async (results) => {
         const valid = results.filter(Boolean);
         if (valid.length === 0) return;
-        for (const { name, text } of valid) {
-            const songId = await addSong(name, text, currentLibraryId);
-            // Only add to set if not already in set
-            if (!songs.some(s => s.songId === songId)) {
-                const state = await getSongState(songId) || {};
-                songs.push({
-                    songId,
-                    name,
-                    originalText: text,
-                    text: state.editedText || text,
-                    transpose: state.transpose || 0,
-                    annotation: state.annotation || '',
-                    stave: state.stave || null,
-                    staveTimeSig: state.staveTimeSig || null,
-                });
-            }
-        }
-        if (currentIndex < 0) currentIndex = 0;
-        populateSelect();
-        fileSelect.selectedIndex = currentIndex;
-        renderCurrent();
-        updateNav();
-        saveSessionRef();
+        await addSongsToView(valid);
         fileInput.value = '';
     });
+}
+
+// Add songs ({ name, text }) to the current library and to the songs on screen.
+// Returns the last song's { songId, isNew }.
+async function addSongsToView(items) {
+    let last = null;
+    for (const { name, text } of items) {
+        last = await addSongIfNew(name, text, currentLibraryId);
+        const songId = last.id;
+        // Only add to set if not already in set
+        if (!songs.some(s => s.songId === songId)) {
+            const state = await getSongState(songId) || {};
+            songs.push({
+                songId,
+                name,
+                originalText: text,
+                text: state.editedText || text,
+                transpose: state.transpose || 0,
+                annotation: state.annotation || '',
+                stave: state.stave || null,
+                staveTimeSig: state.staveTimeSig || null,
+            });
+        }
+    }
+    if (currentIndex < 0) currentIndex = 0;
+    populateSelect();
+    fileSelect.selectedIndex = currentIndex;
+    renderCurrent();
+    updateNav();
+    saveSessionRef();
+    return last;
+}
+
+// A song sent from the ChordPro converter (chordpro-converter.html, same site):
+// add it to the current library and open it. If it's already there, just open it.
+const PENDING_SONG_KEY = 'stagechord_pending_song';
+async function importPendingSong() {
+    let pending = null;
+    try {
+        const raw = localStorage.getItem(PENDING_SONG_KEY);
+        if (!raw) return;
+        localStorage.removeItem(PENDING_SONG_KEY);
+        pending = JSON.parse(raw);
+    } catch (_) {
+        return;
+    }
+    if (!pending || typeof pending.text !== 'string' || !pending.text.trim()) return;
+    const name = String(pending.filename || 'Untitled.chopro');
+    try {
+        const result = await addSongsToView([{ name: name, text: pending.text }]);
+        const idx = songs.findIndex((s) => s.songId === result.id);
+        if (idx >= 0) {
+            currentIndex = idx;
+            fileSelect.selectedIndex = currentIndex;
+            renderCurrent();
+            updateNav();
+            saveSessionRef();
+        }
+        if (!result.isNew) alert('That song is already in this library, so it has been opened.');
+    } catch (e) {
+        alert('Could not add the song: ' + e.message);
+    }
 }
 
 function populateSelect() {
@@ -1438,16 +1479,12 @@ function renderCurrent() {
     });
     btnGroup.appendChild(staveBtn);
 
-    // Edit button (chords, key, tempo)
+    // Edit button (chords and lyrics; key and tempo are in Edit info)
     const editChordsBtn = document.createElement('button');
     editChordsBtn.textContent = chordEditMode ? '✓ Done' : '✎ Edit song';
     editChordsBtn.className = 'annotate-btn' + (chordEditMode ? ' active-edit' : '');
-    editChordsBtn.title = 'Edit chords, lyrics, key and tempo';
+    editChordsBtn.title = 'Edit chords and lyrics';
     editChordsBtn.addEventListener('click', () => {
-        // If leaving edit mode, save key/tempo from input fields
-        if (chordEditMode) {
-            saveEditMetaFields(song);
-        }
         chordEditMode = !chordEditMode;
         dismissChordPopup();
         const editTip = document.getElementById('edit-tip');
@@ -1475,51 +1512,6 @@ function renderCurrent() {
     if (fontControls) {
         fontControls.classList.add('in-meta-btn-group');
         btnGroup.appendChild(fontControls);
-    }
-
-    // Key/Tempo editor — shown as first line in song view when in edit mode
-    if (chordEditMode) {
-        const editRow = document.createElement('div');
-        editRow.className = 'edit-meta-row';
-
-        // Key editor — blank for inferred keys so user can write the correct one
-        const keyLabel = document.createElement('label');
-        keyLabel.textContent = 'Key: ';
-        keyLabel.className = 'edit-meta-label';
-        const keyInput = document.createElement('input');
-        keyInput.type = 'text';
-        keyInput.className = 'edit-meta-input';
-        keyInput.id = 'edit-key-input';
-        keyInput.placeholder = hasKey ? transposedKeyName : 'e.g. G';
-        // Only pre-fill if key is explicitly set in the file (not inferred)
-        keyInput.value = (hasKey && !inferredKey) ? transposedKeyName : '';
-        keyInput.size = 4;
-        keyInput.addEventListener('change', () => {
-            saveEditMetaFields(song);
-        });
-        keyLabel.appendChild(keyInput);
-        editRow.appendChild(keyLabel);
-
-        // Tempo editor
-        const tempoLabel = document.createElement('label');
-        tempoLabel.textContent = 'Tempo: ';
-        tempoLabel.className = 'edit-meta-label';
-        const tempoInput = document.createElement('input');
-        tempoInput.type = 'number';
-        tempoInput.className = 'edit-meta-input';
-        tempoInput.id = 'edit-tempo-input';
-        tempoInput.placeholder = parsed.metadata.tempo || 'bpm';
-        tempoInput.value = parsed.metadata.tempo || '';
-        tempoInput.min = 20;
-        tempoInput.max = 300;
-        tempoInput.size = 5;
-        tempoInput.addEventListener('change', () => {
-            saveEditMetaFields(song);
-        });
-        tempoLabel.appendChild(tempoInput);
-        editRow.appendChild(tempoLabel);
-
-        songView.appendChild(editRow);
     }
 
     // Show annotation box if annotation exists
@@ -1798,9 +1790,8 @@ function dismissChordPopup() {
     }
 }
 
-// Save key/tempo from edit input fields into song text
-// Key and tempo have their own inputs in edit mode (key handles transposition),
-// so the details editor leaves them alone.
+// Key and tempo have their own fields at the top of Edit info (the key allows
+// for transposition), so they don't appear as plain info rows.
 const DETAILS_MANAGED_KEYS = ['key', 'tempo'];
 
 // Song name + header metadata editor. Plain DOM overlay (no <dialog>) so it works
@@ -1839,6 +1830,40 @@ function openSongDetailsEditor(song, focusTitle) {
     titleInput.value = titleEntry.value || (parseChordPro(song.text).metadata.title ? '' : song.name.replace(/\.[^.]+$/, ''));
     titleLabel.appendChild(titleInput);
     panel.appendChild(titleLabel);
+
+    // Key and tempo, working as they did in Edit mode.
+    const shownKey = displayedKey(song);
+    const keyTempoRow = document.createElement('div');
+    keyTempoRow.className = 'song-details-keytempo';
+    const keyLabel = document.createElement('label');
+    keyLabel.className = 'song-details-label';
+    keyLabel.textContent = 'Key';
+    const keyInput = document.createElement('input');
+    keyInput.type = 'text';
+    keyInput.id = 'song-details-key';
+    keyInput.setAttribute('autocapitalize', 'off');
+    keyInput.setAttribute('autocorrect', 'off');
+    keyInput.placeholder = shownKey.name || 'e.g. G';
+    keyInput.value = shownKey.explicit ? shownKey.name : '';
+    keyLabel.appendChild(keyInput);
+    const tempoLabel = document.createElement('label');
+    tempoLabel.className = 'song-details-label';
+    tempoLabel.textContent = 'Tempo';
+    const tempoInput = document.createElement('input');
+    tempoInput.type = 'number';
+    tempoInput.id = 'song-details-tempo';
+    tempoInput.min = 20;
+    tempoInput.max = 300;
+    tempoInput.placeholder = 'bpm';
+    tempoInput.value = parseChordPro(song.text).metadata.tempo || '';
+    tempoLabel.appendChild(tempoInput);
+    keyTempoRow.appendChild(keyLabel);
+    keyTempoRow.appendChild(tempoLabel);
+    panel.appendChild(keyTempoRow);
+    const keyNote = document.createElement('div');
+    keyNote.className = 'song-details-note';
+    keyNote.textContent = 'The key the chords on screen are in. Changing it doesn’t change the chords.';
+    panel.appendChild(keyNote);
 
     const rowsBox = document.createElement('div');
     rowsBox.className = 'song-details-rows';
@@ -1912,10 +1937,11 @@ function openSongDetailsEditor(song, focusTitle) {
             if (e.isNew && !String(e.value || '').trim()) return false;
             return true;
         });
-        const nextText = writeHeader(song.text, next);
+        const before = song.text;
+        song.text = writeHeader(song.text, next);
+        applyKeyTempo(song, keyInput.value, tempoInput.value);
         overlay.remove();
-        if (nextText === song.text) return;
-        song.text = nextText;
+        if (song.text === before) return;
         await saveSongStateToDB(song);
         saveSessionRef();
         populateSelect();
@@ -1938,13 +1964,35 @@ function openSongDetailsEditor(song, focusTitle) {
     if (focusTitle) titleInput.focus();
 }
 
-function saveEditMetaFields(song) {
-    const keyInput = document.getElementById('edit-key-input');
-    const tempoInput = document.getElementById('edit-tempo-input');
+// The key as shown on screen (the file's key plus the song's transpose).
+// explicit is false when there's no {key:} and it was guessed from the first chord.
+function displayedKey(song) {
+    const key = parseChordPro(song.text).metadata.key;
+    let note = key ? (key.match(/^([A-G][#b]?)/) || [])[1] : null;
+    const explicit = !!note;
+    if (!note) {
+        const lines = parseChordPro(song.text).lines;
+        for (let i = 0; i < lines.length && !note; i++) {
+            for (let j = 0; j < lines[i].length; j++) {
+                if (lines[i][j].type !== 'chord') continue;
+                note = (lines[i][j].value.match(/^([A-G][#b]?)/) || [])[1] || null;
+                break;
+            }
+        }
+    }
+    if (!note || noteEnharmonics[note] === undefined) return { name: '', explicit: false };
+    return { name: getKeyNameForIndex((noteEnharmonics[note] + (song.transpose || 0) + 12) % 12), explicit: explicit };
+}
+
+// Apply the Key and Tempo fields from Edit info to song.text. The key typed is
+// the key as shown on screen, so it's stored relative to the song's transpose:
+// it relabels the song and never moves the chords. A blank key is left alone;
+// a blank tempo removes it. Returns true if the text changed.
+function applyKeyTempo(song, keyValue, tempoValue) {
     let changed = false;
 
-    if (keyInput) {
-        const newKey = keyInput.value.trim();
+    if (keyValue !== null) {
+        const newKey = String(keyValue).trim();
         if (newKey) {
             const keyMatch = newKey.match(/^([A-G][#b]?)/);
             if (keyMatch) {
@@ -1967,8 +2015,8 @@ function saveEditMetaFields(song) {
         }
     }
 
-    if (tempoInput) {
-        const val = tempoInput.value.trim();
+    if (tempoValue !== null) {
+        const val = String(tempoValue).trim();
         if (val && !isNaN(val) && val >= 20 && val <= 300) {
             if (updateSongMetadata(song, 'tempo', val)) changed = true;
         } else if (!val) {
@@ -1976,10 +2024,7 @@ function saveEditMetaFields(song) {
             if (removeSongMetadata(song, 'tempo')) changed = true;
         }
     }
-
-    if (changed) {
-        saveSongStateToDB(song);
-    }
+    return changed;
 }
 
 // Update or insert a metadata directive in the song text (e.g. {key: G}, {tempo: 120})

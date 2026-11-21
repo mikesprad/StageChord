@@ -5,7 +5,8 @@ Mobile-friendly ChordPro viewer and setlist manager. Runs entirely in the browse
 ## Features
 - Display ChordPro songs with chords above lyrics
 - Transpose, add stave notation, edit chords and lyrics
-- Edit a song's name and info (artist, etc.). The info lines at the top of a ChordPro file are hidden when a song is displayed
+- Edit a song's name and info (artist, key, tempo, etc.) with **Edit info**. The info lines at the top of a ChordPro file are hidden when a song is displayed. The key is a label for the chords as written: correcting it never moves the chords, and it's stored relative to the song's transpose
+- **ChordPro converter** (`chordpro-converter.html`, linked from Songs & Help): paste a chord sheet or open a PDF, then **Add to StageChord** or download it
 - Organise songs into **Libraries** (e.g. Church, Funk Band)
 - Build and save **Sets** (setlists) per library
 - Share sets as a link or file
@@ -126,6 +127,7 @@ A new `CACHE_VERSION` is what triggers the update offer, which is why every rele
 | `stave.js` | Stave notation (loads `vexflow.bundle.js` on demand) |
 | `service-worker.js` | Offline cache and update staging; `APP_ASSETS` is the list of files cached |
 | `help.html`, `songlibs/` | Songs & Help page and the downloadable song bundles |
+| `chordpro-converter.html` | Standalone chord sheet / PDF → ChordPro converter. **Add to StageChord** leaves the song in `localStorage` (`stagechord_pending_song`) and opens `index.html`, which adds it to the current library. Pasting works on old iPads; the PDF reader (pdf.js from cdnjs) needs a newer browser, so the button is replaced with a message there. Not in the offline cache |
 
 **Data** (IndexedDB, per device, never sent anywhere):
 - **libraries**: songs and sets belong to one library (e.g. Church, Funk Band).

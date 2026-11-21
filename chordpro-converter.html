@@ -43,7 +43,7 @@ body {
   background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body);
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 20px 32px;
+  padding-top: 20px; padding-bottom: 32px;
 }
 .wrap { max-width: 1280px; margin: 0 auto; display: grid; gap: 16px; }
 header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; }
@@ -104,6 +104,9 @@ textarea {
 .example[hidden] { display: none; }
 .linkbtn { background: none; border: 0; color: var(--chord); font: inherit; text-decoration: underline; cursor: pointer; padding: 0; }
 .toast { color: var(--ok); font-weight: 600; }
+.back { color: var(--chord); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.back:hover { text-decoration: underline; }
+.unavailable { font-size: 0.8rem; color: var(--muted); }
 @media (prefers-reduced-motion: no-preference) { .btn, .chip { transition: border-color .15s, opacity .15s; } }
 </style>
 </head>
@@ -114,7 +117,10 @@ textarea {
       <h1>Chord sheet <span>→</span> ChordPro</h1>
       <p class="sub">Paste a chords-over-lyrics sheet from Ultimate Guitar or similar. Chords get folded into the words, sections become “Verse:”.</p>
     </div>
-    <button class="btn primary" id="newSong" type="button">New song</button>
+    <div class="actions">
+      <a class="back" href="index.html">← Back to StageChord</a>
+      <button class="btn" id="newSong" type="button">New song</button>
+    </div>
   </header>
 
   <section class="details" aria-label="Song details">
@@ -150,13 +156,16 @@ textarea {
     <div class="field">
       <span class="lbl">&nbsp;</span>
       <div class="actions">
-        <button class="btn primary" id="download" type="button">Download</button>
+        <button class="btn primary" id="addToApp" type="button">Add to StageChord</button>
+        <button class="btn" id="download" type="button">Download</button>
       </div>
       <div class="hint" id="dlHint"></div>
     </div>
   </section>
 
   <p class="example" id="exampleNote">This is a made-up example song so you can see what it does. Paste your sheet on the left to replace it, or <button class="linkbtn" id="clearEx" type="button">clear it</button>.</p>
+
+  <p class="example" id="repeatNote" hidden></p>
 
   <div class="panes">
     <section class="pane">
@@ -320,6 +329,26 @@ function chordOnlyLine(line) {
   return "| " + inside.join(" ") + " |" + (after.length ? " " + after.join(" ") : "");
 }
 
+// ---- Song info lines (header and footer) ----
+// "Key: Ab", "Key - Ab | Tempo - 75 | Time - 4/4", "Key: Ab BPM: 75 Time: 4/4"
+const FIELDS_LINE_RE = /^\s*(?:key|tempo|bpm|time(?:\s*signature)?)\s*[:\-]/i;
+function readFields(l) {
+  if (!FIELDS_LINE_RE.test(l)) return null;
+  const f = {}; let m;
+  if ((m = l.match(/\bkey\s*[:\-]\s*([A-G][#b♯♭]?m?)(?![A-Za-z0-9#])/i))) f.key = m[1];
+  if ((m = l.match(/\b(?:tempo|bpm)\s*[:\-]?\s*(\d{2,3})\b/i))) f.tempo = m[1];
+  if ((m = l.match(/\btime(?:\s*signature)?\s*[:\-]?\s*(\d{1,2}\/\d{1,2})/i))) f.time = m[1];
+  return f;
+}
+const WRITERS_RE = /^\s*(?:writers?|written by|songwriters?|composers?|words (?:and|&) music(?: by)?|music and lyrics(?: by)?)\s*[:\-]?\s*(.+?)\s*$/i;
+const BASED_ON_RE = /^\s*\(?\s*based on the recording by (.+?)\s*\)?\s*$/i;
+const PAGE_MARK_RE = /^--- Page (\d+) ---$/;              // added between PDF pages
+const PAGE_NUM_RE = /^\s*page\s+\d+(?:\s*(?:of|\/)\s*\d+)?\s*$/i;
+const COPYRIGHT_RE = /^\s*(?:©|\(c\)\s|copyright\b)/i;
+const LICENCE_RE = /(all rights reserved|used by permission|for use solely with|reproduction of this sheet|ccli\.com|ccli licen[cs]e)/i;
+const CCLI_RE = /^\s*ccli\s*(?:song)?\s*(?:#|no\.?|number)?\s*:?\s*(\d{3,})\s*$/i;
+function isInfoLine(l) { return !!(readFields(l) || WRITERS_RE.test(l) || BASED_ON_RE.test(l) || /^\s*capo\b/i.test(l)); }
+
 function convert(raw, opts = {}) {
   const text = raw
     .replace(/\r\n?/g, "\n")
@@ -328,7 +357,10 @@ function convert(raw, opts = {}) {
     .replace(/\t/g, "        ");
   let lines = text.split("\n").map(l => l.replace(/\s+$/, ""));
   const meta = { title: "", artist: "", key: "", capo: "", tempo: "", time: "", composer: "", copyright: "", ccli: "" };
-  NUM.key = opts.numbersKey || "C";
+  // Number charts are converted in the sheet's own key when it gives one, otherwise the chosen key (C by default)
+  let sheetKey = "";
+  for (const l of lines) { const f = readFields(l); if (f && f.key) { sheetKey = f.key; break; } }
+  NUM.key = sheetKey ? sheetKey.replace(/m$/, "").replace("♯", "#").replace("♭", "b") : (opts.numbersKey || "C");
   NUM.on = detectNumbers(lines);
 
   // CCLI SongSelect sheets: title on line 1, writers on line 2, licence footer at the end
@@ -358,6 +390,7 @@ function convert(raw, opts = {}) {
   let section = "";
   let started = false;
   let stats = { sections: 0, chords: 0, merged: 0 };
+  let page = 1, pageTop = false, afterCopyright = false, copyrightOpen = false;
 
   const push = (l) => out.push(l);
   let headerIdx = -1; // index of the most recent section heading in out
@@ -388,24 +421,45 @@ function convert(raw, opts = {}) {
     if ((m = l.match(/^\s*\{\s*(?:artist|subtitle|st)\s*:\s*(.+?)\s*\}\s*$/i))) { meta.artist = m[1]; continue; }
     if ((m = l.match(/^\s*capo\s*[:\-]?\s*(\d+)/i))) { meta.capo = m[1]; continue; }
     if (/^\s*(?:capo\s*[:\-]?\s*(?:none|no capo)|no capo)\s*$/i.test(l)) continue;
-    // "Key - Ab | Tempo - 75 | Time - 4/4" on one line
-    if (/^\s*(key|tempo|time)\s*[:\-]/i.test(l) && l.includes("|")) {
-      for (const part of l.split("|")) {
-        let pm;
-        if ((pm = part.match(/^\s*key\s*[:\-]\s*([A-G][#b]?m?)\b/i))) meta.key = pm[1];
-        else if ((pm = part.match(/^\s*(?:tempo|bpm)\s*[:\-]?\s*(\d{2,3})/i))) meta.tempo = pm[1];
-        else if ((pm = part.match(/^\s*time\s*[:\-]?\s*(\d{1,2}\/\d{1,2})/i))) meta.time = pm[1];
-      }
+    // Key, tempo and time, on one line or several. The first value found wins (later pages repeat them).
+    const f = readFields(l);
+    if (f) {
+      if (f.key && !meta.key) meta.key = f.key;
+      if (f.tempo && !meta.tempo) meta.tempo = f.tempo;
+      if (f.time && !meta.time) meta.time = f.time;
       continue;
     }
-    if ((m = l.match(/^\s*key\s*[:\-]\s*([A-G][#b]?m?)\b/i))) { meta.key = m[1]; continue; }
-    if ((m = l.match(/^\s*time\s*[:\-]\s*(\d{1,2}\/\d{1,2})\s*$/i))) { meta.time = m[1]; continue; }
-    if ((m = l.match(/^\s*(?:tempo|bpm)\s*[:\-]?\s*(\d{2,3})/i))) { meta.tempo = m[1]; continue; }
+    if ((m = l.match(WRITERS_RE))) { if (!meta.composer) meta.composer = m[1].split(/\s*\|\s*/).join(", "); continue; }
+    if ((m = l.match(BASED_ON_RE))) { if (!meta.artist) meta.artist = m[1]; continue; }
+    // Footer lines on any page: CCLI number, copyright (and its next line), licence wording, page numbers
+    if ((m = l.match(PAGE_MARK_RE))) { page = +m[1]; pageTop = true; afterCopyright = false; pushBlank(); continue; }
+    if (PAGE_NUM_RE.test(l)) continue;
+    if ((m = l.match(CCLI_RE))) { if (!meta.ccli) meta.ccli = m[1]; afterCopyright = false; continue; }
+    if (COPYRIGHT_RE.test(l)) {
+      copyrightOpen = !meta.copyright;
+      if (copyrightOpen) meta.copyright = l.trim();
+      afterCopyright = true;
+      continue;
+    }
+    if (LICENCE_RE.test(l)) {
+      if (afterCopyright && copyrightOpen) meta.copyright += " " + l.trim();
+      continue;
+    }
+    if (l.trim()) afterCopyright = false;
+    // Title repeated at the top of a later page
+    if (pageTop && meta.title && norm(l) === norm(meta.title)) continue;
+    // Title at the top of the sheet: a short line followed by song info or a section heading
+    if (!started && !meta.title && classify(l) === "lyric" && l.trim().split(/\s+/).length <= 8) {
+      let j = i + 1;
+      while (j < lines.length && !lines[j].trim()) j++;
+      if (j < lines.length && (isInfoLine(lines[j]) || sectionName(lines[j]))) { meta.title = l.trim(); continue; }
+    }
 
     const kind = classify(l);
     if (kind === "blank") { pushBlank(); continue; }
     if (kind === "junk") continue;
     if (kind === "directive") { push(l.trim()); continue; }
+    if (kind === "lyric" || kind === "chords" || kind === "section") pageTop = false;
     if (kind === "section") {
       started = true;
       const s = sectionName(l);
@@ -427,7 +481,7 @@ function convert(raw, opts = {}) {
       if (classify(lines[i + 1]) === "lyric") {
         const merged = mergeLine(l, lines[i + 1]);
         push(merged.replace(/\uE000/g, ""));
-        lyricLines.push({ text: lines[i + 1].replace(/\uE000/g, "").trim(), section });
+        lyricLines.push({ text: lines[i + 1].replace(/\uE000/g, "").trim(), section, page });
         stats.merged++;
         i++;
       } else {
@@ -438,7 +492,7 @@ function convert(raw, opts = {}) {
     // lyric
     started = true;
     push(l.replace(/\uE000/g, "").trim());
-    lyricLines.push({ text: l.replace(/\uE000/g, "").trim(), section });
+    lyricLines.push({ text: l.replace(/\uE000/g, "").trim(), section, page });
   }
   // SongSelect splits words into sung syllables ("a - lone"): join them back up, keeping any chord in between
   if (songSelect) for (let k = 0; k < out.length; k++) {
@@ -446,7 +500,14 @@ function convert(raw, opts = {}) {
   }
   while (out.length && out[0] === "") out.shift();
   while (out.length && out[out.length - 1] === "") out.pop();
-  return { body: out, meta, lyricLines, stats, numbers: NUM.on, numbersKey: NUM.key };
+  // Later pages that start with page 1's lyrics (e.g. the song again as a number chart): kept, but flagged
+  const repeatPages = [];
+  const firstPage = lyricLines.filter(x => x.page === 1).map(x => norm(x.text)).join("\n");
+  for (let p = 2; p <= page; p++) {
+    const start = lyricLines.filter(x => x.page === p).slice(0, 3).map(x => norm(x.text));
+    if (start.length === 3 && firstPage.indexOf(start.join("\n")) === 0) repeatPages.push(p);
+  }
+  return { body: out, meta, lyricLines, stats, numbers: NUM.on, numbersKey: NUM.key, sheetKey, repeatPages };
 }
 
 const SMALL = new Set("a an and as at but by for in of on or the to vs via".split(" "));
@@ -511,7 +572,8 @@ function buildChordPro(conv, title, artist) {
   head.push("{title: " + title.trim() + "}");
   if (artist.trim()) head.push("{artist: " + artist.trim() + "}");
   if (conv.meta.composer) head.push("{composer: " + conv.meta.composer + "}");
-  const key = conv.numbers ? conv.numbersKey : conv.meta.key;
+  // Never a default key: the sheet's key, or for a number chart the key the numbers were converted in
+  const key = conv.meta.key || (conv.numbers ? conv.numbersKey : "");
   if (key) head.push("{key: " + key + "}");
   if (conv.meta.capo) head.push("{capo: " + conv.meta.capo + "}");
   if (conv.meta.tempo) head.push("{tempo: " + conv.meta.tempo + "}");
@@ -615,9 +677,10 @@ function pdfToText(pages, measure) {
     return res;
   }
 
-  for (const pg of pages) {
+  pages.forEach((pg, pi) => {
     const items = pg.items.filter(i => i.str && i.str.trim()).map(i => ({ ...i }));
-    if (!items.length) continue;
+    if (!items.length) return;
+    if (pi > 0) outLines.push("", "--- Page " + (pi + 1) + " ---");
     const W = pg.width;
     // Find a gutter: the x near the middle crossed by the fewest text items
     let split = null, best = Infinity;
@@ -627,7 +690,7 @@ function pdfToText(pages, measure) {
     }
     const rightCount = items.filter(i => i.x >= split).length;
     if (!(rightCount >= 8 && best <= Math.max(3, items.length * 0.03))) split = null;
-    if (split === null) { outLines.push(...linesOf(items), ""); continue; }
+    if (split === null) { outLines.push(...linesOf(items), ""); return; }
     columns = 2;
     const full = items.filter(i => i.x < split && i.x + i.w > split);
     const left = items.filter(i => i.x + i.w <= split);
@@ -635,7 +698,7 @@ function pdfToText(pages, measure) {
     const colTop = Math.max(...right.map(i => i.y));
     const header = full.filter(i => i.y > colTop), footer = full.filter(i => i.y <= colTop);
     outLines.push(...linesOf(header), ...linesOf(left), "", ...linesOf(right), "", ...linesOf(footer), "");
-  }
+  });
   NUM.on = wasOn;
   return { text: outLines.join("\n").replace(/\n{3,}/g, "\n\n").trim(), columns, ligatures };
 }
@@ -714,7 +777,15 @@ function setTitleHint(cands, source) {
 function rebuild(fromInput) {
   const conv = convert(src.value, { numbersKey: numKeyEl.value });
   lastConv = conv;
-  $("numHint").textContent = conv.numbers ? "Numbers found: 1 = " + numToChord("1") : "For 1–7 chord charts";
+  numKeyEl.disabled = !!(conv.numbers && conv.sheetKey);
+  $("numHint").textContent = !conv.numbers ? "For 1–7 chord charts"
+    : conv.sheetKey ? "Numbers found: using the sheet's key, " + conv.numbersKey
+    : "Numbers found: 1 = " + conv.numbersKey;
+  const rep = conv.repeatPages;
+  $("repeatNote").hidden = !rep.length;
+  $("repeatNote").textContent = rep.length
+    ? "Page " + rep.join(" and ") + (rep.length > 1 ? " look" : " looks") + " like a repeat of the song. Everything has been kept, so delete the repeat on the right if you don't need it."
+    : "";
   if (fromInput && !titleTouched) {
     if (conv.meta.title) {
       titleEl.value = titleCase(conv.meta.title);
@@ -741,16 +812,35 @@ function filename() {
 function updateDownload() {
   const ok = titleEl.value.trim() && out.value.trim();
   $("download").disabled = !ok;
+  $("addToApp").disabled = !ok;
   $("dlHint").textContent = !out.value.trim() ? "Paste a sheet first." : !titleEl.value.trim() ? "Add a song title first." : filename();
 }
 
-function download() {
-  if ($("download").disabled) return;
-  // Make sure the title line in the output matches the title box
+// The ChordPro to save, with the title line matching the title box
+function finalText() {
   let text = out.value;
   const t = titleEl.value.trim();
   if (/^\{title:[^}]*\}/m.test(text)) text = text.replace(/^\{title:[^}]*\}/m, "{title: " + t + "}");
   else text = "{title: " + t + "}\n" + text;
+  return text;
+}
+
+// Hand the song to StageChord (same site, so they share storage): the app adds it
+// to the current library and opens it when it loads.
+function addToApp() {
+  if ($("addToApp").disabled) return;
+  try {
+    localStorage.setItem("stagechord_pending_song", JSON.stringify({ filename: filename(), text: finalText() }));
+  } catch (e) {
+    $("dlHint").textContent = "Couldn't pass the song to StageChord here. Use Download instead.";
+    return;
+  }
+  location.href = "index.html";
+}
+
+function download() {
+  if ($("download").disabled) return;
+  const text = finalText();
   const blob = new Blob([text.replace(/\n/g, "\r\n")], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -801,6 +891,7 @@ artistEl.addEventListener("input", () => { artistEl.dataset.touched = "1"; store
 extEl.addEventListener("change", () => { store.set("cp_ext", extEl.value); updateDownload(); });
 out.addEventListener("input", updateDownload);
 $("download").addEventListener("click", download);
+$("addToApp").addEventListener("click", addToApp);
 $("newSong").addEventListener("click", newSong);
 $("clearEx").addEventListener("click", newSong);
 $("copy").addEventListener("click", async () => {
@@ -860,11 +951,21 @@ async function openPdf(file) {
   }
 }
 $("pdfFile").addEventListener("change", (e) => { const f = e.target.files[0]; if (f) openPdf(f); e.target.value = ""; });
+// The PDF reader needs a newer browser than old iPads have (it uses ?. and ??).
+let pdfSupported = true;
+try { new Function("var a = {}; return a?.b ?? 1"); } catch (e) { pdfSupported = false; }
+if (!pdfSupported) {
+  const note = document.createElement("span");
+  note.className = "unavailable";
+  note.textContent = "PDF conversion isn't available on older devices";
+  $("pdfBtn").replaceWith(note);
+  document.querySelector(".pane-head .small").textContent = "Paste chords-over-lyrics text";
+}
 const srcPane = src.closest(".pane");
 ["dragenter", "dragover"].forEach(t => srcPane.addEventListener(t, (e) => { if ([...e.dataTransfer.types].includes("Files")) { e.preventDefault(); srcPane.classList.add("drop"); } }));
 ["dragleave", "drop"].forEach(t => srcPane.addEventListener(t, () => srcPane.classList.remove("drop")));
 srcPane.addEventListener("drop", (e) => {
-  const f = [...e.dataTransfer.files].find(f => /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name));
+  const f = pdfSupported && [...e.dataTransfer.files].find(f => /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name));
   if (f) { e.preventDefault(); openPdf(f); }
 });
 numKeyEl.addEventListener("change", () => { store.set("cp_numkey", numKeyEl.value); rebuild(false); });

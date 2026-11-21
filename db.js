@@ -405,7 +405,7 @@ export async function addSong(filename, originalText, libraryId = DEFAULT_LIBRAR
 }
 
 // Like addSong, but also says whether the song was new to this library.
-async function addSongIfNew(filename, originalText, libraryId) {
+export async function addSongIfNew(filename, originalText, libraryId) {
     const db = await openDB();
     const normalizedLibraryId = normalizeLibraryId(libraryId);
     const hash = hashText(originalText);
