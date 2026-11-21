@@ -223,12 +223,23 @@
             // version downloads quietly and WAITS; we only surface it as an
             // "Update Available" hint in the menu and apply it when the user taps.
             let userInitiatedUpdate = false;
+            let updateShown = false;
 
             function markUpdateAvailable() {
+                updateShown = true;
                 if (menuBtn) menuBtn.classList.add('has-update');
                 ['menu-check-update', 'ios-menu-check-update'].forEach(function(id) {
                     const el = document.getElementById(id);
                     if (el) { el.textContent = 'Update Available'; el.classList.add('update-available'); }
+                });
+            }
+
+            function clearUpdateAvailable() {
+                updateShown = false;
+                if (menuBtn) menuBtn.classList.remove('has-update');
+                ['menu-check-update', 'ios-menu-check-update'].forEach(function(id) {
+                    const el = document.getElementById(id);
+                    if (el) { el.textContent = 'Check for Update'; el.classList.remove('update-available'); }
                 });
             }
 
@@ -246,19 +257,28 @@
                 let registration = null;
                 try { registration = await navigator.serviceWorker.getRegistration(); } catch (_) {}
                 if (registration && registration.waiting) { applyUpdate(registration); return; }
+                // We said an update was available but it's no longer waiting: it was
+                // applied elsewhere (another window, or iOS while in the background)
+                // and this page is still the old version. The user tapped, so reload.
+                if (updateShown) { window.location.reload(); return; }
                 // Nothing staged yet — check the server now (does not block the UI).
                 if (registration) { try { await registration.update(); } catch (_) {} }
                 if (registration && registration.waiting) { applyUpdate(registration); return; }
                 if (registration && registration.installing) {
                     alert('An update is downloading. "Update Available" will appear in the menu shortly — tap it to apply.');
                 } else {
+                    clearUpdateAvailable();
                     alert('StageChord is up to date.');
                 }
             }
 
             if ('serviceWorker' in navigator) {
+                // No controller at load means a first-ever install, whose takeover isn't an update.
+                const hadController = !!navigator.serviceWorker.controller;
                 navigator.serviceWorker.addEventListener('controllerchange', function() {
-                    if (!userInitiatedUpdate) return;
+                    // A new version took over without this page reloading (applied in
+                    // another window): keep offering the update, never reload by ourselves.
+                    if (!userInitiatedUpdate) { if (hadController) markUpdateAvailable(); return; }
                     userInitiatedUpdate = false;
                     window.location.reload();
                 });
