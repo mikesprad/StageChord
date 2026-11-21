@@ -604,7 +604,8 @@ function pdfToText(pages, measure) {
       for (let k = 0; k < it.str.length; k++) { xs.push(it.x + it.w * (measure(it.str.slice(0, k)) / total)); text += it.str[k]; }
       end = it.x + it.w;
     }
-    return { text, xs, starts, y: items[0].y, x0: items[0].x, end };
+    const h = Math.max.apply(null, items.map(it => it.h || 0));   // text size (0 if unknown)
+    return { text, xs, starts, y: items[0].y, x0: items[0].x, end, h };
   }
   function linesOf(items) {
     items = items.slice().sort((a, b) => b.y - a.y || a.x - b.x);
@@ -634,7 +635,8 @@ function pdfToText(pages, measure) {
     for (let i = 0; i < built.length; i++) {
       const L = built[i], N = built[i + 1];
       if (i > 0 && built[i - 1].y - L.y > 30) res.push("");
-      if (isChordLine(L.text) && N && !isChordLine(N.text) && !sectionName(N.text) && L.y - N.y <= 16) {
+      // Chords sit just above their lyric: within 16pt, or 1.5 lines of text for large print
+      if (isChordLine(L.text) && N && !isChordLine(N.text) && !sectionName(N.text) && L.y - N.y <= Math.max(16, 1.5 * Math.max(L.h, N.h))) {
         const avg = (N.end - N.x0) / Math.max(1, N.text.length);
         let line = "", lyr = N.text, shift = 0;
         const re = /\S+/g; let m;
@@ -693,7 +695,9 @@ function pdfToText(pages, measure) {
     outLines.push(...linesOf(header), ...linesOf(left), "", ...linesOf(right), "", ...linesOf(footer), "");
   });
   NUM.on = wasOn;
-  return { text: outLines.join("\n").replace(/\n{3,}/g, "\n\n").trim(), columns, ligatures };
+  // Drop blank lines at the ends, but keep a first chord line's leading spaces (they place its chords)
+  const text = outLines.join("\n").replace(/\n{3,}/g, "\n\n").replace(/^(?:[ \t]*\n)+/, "").replace(/\s+$/, "");
+  return { text, columns, ligatures };
 }
 // ===== CORE END =====
 
@@ -867,7 +871,7 @@ async function openPdf(file) {
       const page = await doc.getPage(p);
       const tc = await page.getTextContent();
       pages.push({ width: page.getViewport({ scale: 1 }).width,
-        items: tc.items.filter(i => "str" in i).map(i => ({ str: i.str, x: i.transform[4], y: i.transform[5], w: i.width })) });
+        items: tc.items.filter(i => "str" in i).map(i => ({ str: i.str, x: i.transform[4], y: i.transform[5], w: i.width, h: i.height })) });
     }
     const r = pdfToText(pages, measure);
     if (!r.text.trim()) { status.textContent = "That PDF has no text in it (it may be a scan or photo), so it can't be read here."; return; }

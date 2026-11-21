@@ -6,7 +6,7 @@ const path = require('path');
 const html = fs.readFileSync(path.join(__dirname, '..', 'chordpro-converter.html'), 'utf8');
 const core = html.slice(html.indexOf('// ===== CORE START'), html.indexOf('// ===== CORE END'));
 // eslint-disable-next-line no-new-func
-const { convert, buildChordPro, titleCase } = new Function(core + '; return { convert, buildChordPro, titleCase };')();
+const { convert, buildChordPro, titleCase, pdfToText } = new Function(core + '; return { convert, buildChordPro, titleCase, pdfToText };')();
 
 function chordPro(text, numbersKey) {
   const conv = convert(text, { numbersKey: numbersKey || 'C' });
@@ -151,5 +151,24 @@ describe('converter: keys are always major', () => {
   it('a minor key typed in the box becomes its relative major', () => {
     const conv = convert('Verse:\nAm\nRopes on the bollard', { key: 'Em' });
     expect(buildChordPro(conv, 'T', '')).toMatch(/^\{key: G\}$/m);
+  });
+});
+
+describe('converter: PDF layout', () => {
+  // Large print: chords 24pt above their lyric (20pt text), lyric split where the chord lands.
+  const page = {
+    width: 595,
+    items: [
+      { str: 'Am', x: 184.3, y: 309.8, w: 33.8, h: 20 },
+      { str: 'G', x: 338.4, y: 309.8, w: 16.3, h: 20 },
+      { str: 'Mary, did you', x: 54, y: 285.7, w: 124.5, h: 20 },
+      { str: 'know that your b', x: 184.3, y: 285.7, w: 154.1, h: 20 },
+      { str: 'aby boy', x: 338.4, y: 285.7, w: 73.6, h: 20 }
+    ]
+  };
+
+  it('pairs chords with the lyric below in large print, keeping them where the PDF puts them', () => {
+    const { conv } = chordPro(pdfToText([page]).text);
+    expect(conv.body).toContain('Mary, did you [Am]know that your b[G]aby boy');
   });
 });
