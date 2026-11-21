@@ -1,6 +1,6 @@
 // The ChordPro converter hands a song to StageChord, which adds it to the
 // current library and opens it.
-import { test, expect, openApp, waitForAppReady, waitForDialog, setTitles } from './helpers.js';
+import { test, expect, openApp, waitForAppReady, waitForDialog, setTitles, clickMenu } from './helpers.js';
 
 const SHEET = [
     'Writers: Ann Example',
@@ -42,4 +42,10 @@ test('Songs & Help links to the converter in the same window, and it links back'
     await link.click();
     await expect(page).toHaveURL(/chordpro-converter\.html/);
     await expect(page.getByRole('link', { name: '← Back to StageChord' })).toHaveAttribute('href', 'index.html');
+});
+
+test('Convert File in the menu opens the converter', async ({ page }) => {
+    await openApp(page);
+    await clickMenu(page, 'menu-convert-file');
+    await expect(page).toHaveURL(/chordpro-converter\.html/);
 });
