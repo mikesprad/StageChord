@@ -279,17 +279,20 @@ function transposeChordCore(chord, semitones, targetKeyName) {
 }
 
 // ── Song key ─────────────────────────────────────────
-// "Am", "F#", "Bbm" -> { rootIndex, minor }, or null if it isn't a key.
+// StageChord shows every key as a major key: a minor key is shown as its
+// relative major (Am -> C, F#m -> A).
+
+// "C", "F#", "Am", "Bbm" -> the major key's index (0 = C), or null if it isn't a key.
 function parseKeyName(text) {
     const m = String(text || '').trim().match(/^([A-G][#b]?)(.*)$/);
     if (!m || noteEnharmonics[m[1]] === undefined) return null;
-    return { rootIndex: noteEnharmonics[m[1]], minor: /^\s*(m(?!aj)|minor)/.test(m[2]) };
+    const minor = /^\s*(m(?!aj)|minor)/.test(m[2]);
+    return (noteEnharmonics[m[1]] + (minor ? 3 : 0)) % 12;
 }
 
-// Works out the key from the chords when the song has no {key:}. Finds the major
-// key whose chords (I ii iii IV V vi vii) fit best, favouring a song that starts
-// or ends on its home chord. It's the relative minor only if the song starts AND
-// ends on the vi chord: lots of songs in C start on Am. Never just "A" for Am.
+// Works out the key from the chords when the song has no {key:}: the major key
+// whose chords (I ii iii IV V vi vii) fit best, favouring a song that starts or
+// ends on its I or vi chord. Returns the key's index, or null if there are no chords.
 function inferKeyFromChords(lines) {
     const chords = [];
     lines.forEach((tokens) => tokens.forEach((t) => {
@@ -306,8 +309,7 @@ function inferKeyFromChords(lines) {
     const first = chords[0];
     const last = chords[chords.length - 1];
     const degree = (c, fam) => (c.root - fam + 12) % 12;
-    const isI = (c, fam) => !c.minor && !c.dim && degree(c, fam) === 0;
-    const isVi = (c, fam) => c.minor && !c.dim && degree(c, fam) === 9;
+    const isHome = (c, fam) => !c.dim && (c.minor ? degree(c, fam) === 9 : degree(c, fam) === 0);
     let best = null;
     for (let fam = 0; fam < 12; fam++) {
         let score = 0;
@@ -315,35 +317,26 @@ function inferKeyFromChords(lines) {
             const d = degree(c, fam);
             if (c.dim ? d === 11 : c.minor ? [2, 4, 9].indexOf(d) >= 0 : [0, 5, 7].indexOf(d) >= 0) score++;
         });
-        if (isI(first, fam) || isVi(first, fam)) score += 1.5;
-        if (isI(last, fam) || isVi(last, fam)) score += 1;
+        if (isHome(first, fam)) score += 1.5;
+        if (isHome(last, fam)) score += 1;
         if (!best || score > best.score) best = { fam: fam, score: score };
     }
-    const fam = best.fam;
-    const minor = isVi(first, fam) && isVi(last, fam);
-    return { rootIndex: minor ? (fam + 9) % 12 : fam, minor: minor };
+    return best.fam;
 }
 
 // The song's key, from {key:} or worked out from its chords, allowing for its
-// transpose. spellKey / originalSpellKey are the major keys whose sharps and flats
-// the transposed / original chords are spelled with (a minor key's relative
-// major). displayName is the key as shown, e.g. "Am". Null if there are no chords.
+// transpose. originalKeyName / keyName are the original and transposed key names
+// (also used to spell chords with the right sharps or flats). Null if no chords.
 function songKeyInfo(song, parsed) {
     parsed = parsed || parseChordPro(song.text);
-    let key = parsed.metadata.key ? parseKeyName(parsed.metadata.key) : null;
-    const inferred = !key;
-    if (!key) key = inferKeyFromChords(parsed.lines);
-    if (!key) return null;
-    const shift = key.minor ? 3 : 0;
-    const transposedIndex = (key.rootIndex + (song.transpose || 0) + 12) % 12;
-    const spellKey = getKeyNameForIndex((transposedIndex + shift) % 12);
+    let index = parsed.metadata.key ? parseKeyName(parsed.metadata.key) : null;
+    const inferred = index === null;
+    if (inferred) index = inferKeyFromChords(parsed.lines);
+    if (index === null) return null;
     return {
-        rootIndex: key.rootIndex,
-        minor: key.minor,
         inferred: inferred,
-        originalSpellKey: getKeyNameForIndex((key.rootIndex + shift) % 12),
-        spellKey: spellKey,
-        displayName: getEnharmonicSpellingForKey(transposedIndex, spellKey) + (key.minor ? 'm' : '')
+        originalKeyName: getKeyNameForIndex(index),
+        keyName: getKeyNameForIndex((index + (song.transpose || 0) + 12) % 12)
     };
 }
 
@@ -1414,14 +1407,12 @@ function renderCurrent() {
     const lastSectionAnchors = {};
     const contentLines = rawLines.filter((line, i) => lineInfo.kinds[i] === 'content');
     
-    // Original and transposed key. originalKeyName / transposedKeyName are the
-    // major keys whose sharps and flats the chords are spelled with (for a minor
-    // key, its relative major); keyDisplayName is what's shown, e.g. "Am".
+    // Original and transposed key (always major: Am is shown as C).
     const keyInfo = songKeyInfo(song, parsed);
     const hasKey = !!keyInfo;
     const inferredKey = hasKey && keyInfo.inferred;
-    const originalKeyName = hasKey ? keyInfo.originalSpellKey : 'C';
-    const transposedKeyName = hasKey ? keyInfo.spellKey : 'C';
+    const originalKeyName = hasKey ? keyInfo.originalKeyName : 'C';
+    const transposedKeyName = hasKey ? keyInfo.keyName : 'C';
 
     // Display metadata
     if (parsed.metadata.title) {
@@ -1434,7 +1425,7 @@ function renderCurrent() {
     if (hasKey) {
         const keyLabel = inferredKey ? 'Key (inferred): ' : 'Key: ';
         if (currentSongKey) {
-            currentSongKey.appendChild(document.createTextNode(`${keyLabel}${keyInfo.displayName} `));
+            currentSongKey.appendChild(document.createTextNode(`${keyLabel}${transposedKeyName} `));
         }
         
         const downBtn = document.createElement('button');
@@ -2014,7 +2005,7 @@ function openSongDetailsEditor(song, focusTitle) {
 function displayedKey(song) {
     const info = songKeyInfo(song);
     if (!info) return { name: '', explicit: false };
-    return { name: info.displayName, explicit: !info.inferred };
+    return { name: info.keyName, explicit: !info.inferred };
 }
 
 // Apply the Key and Tempo fields from Edit info to song.text. The key typed is
@@ -2027,15 +2018,14 @@ function applyKeyTempo(song, keyValue, tempoValue) {
     if (keyValue !== null) {
         const newKey = String(keyValue).trim();
         if (newKey) {
+            // Typing a minor key stores its relative major ("Am" -> C).
             const typed = parseKeyName(newKey);
-            if (typed) {
-                const storedIndex = (typed.rootIndex - (song.transpose || 0) + 12) % 12;
+            if (typed !== null) {
+                const storedIndex = (typed - (song.transpose || 0) + 12) % 12;
                 const existing = parseKeyName(parseChordPro(song.text).metadata.key);
-                // Keep the existing key's text unless the note or major/minor changed.
-                if (!existing || existing.rootIndex !== storedIndex || existing.minor !== typed.minor) {
-                    const spell = getKeyNameForIndex((storedIndex + (typed.minor ? 3 : 0)) % 12);
-                    const name = getEnharmonicSpellingForKey(storedIndex, spell) + (typed.minor ? 'm' : '');
-                    if (updateSongMetadata(song, 'key', name)) changed = true;
+                // Keep the existing key's text unless it's a different key.
+                if (existing !== storedIndex) {
+                    if (updateSongMetadata(song, 'key', getKeyNameForIndex(storedIndex))) changed = true;
                 }
             }
         }

@@ -358,10 +358,20 @@ function chordOnlyLine(line) {
 // ---- Song info lines (header and footer) ----
 // "Key: Ab", "Key - Ab | Tempo - 75 | Time - 4/4", "Key: Ab BPM: 75 Time: 4/4"
 const FIELDS_LINE_RE = /^\s*(?:key|tempo|bpm|time(?:\s*signature)?)\s*[:\-]/i;
+// Keys are always major, as in StageChord: a minor key becomes its relative major (Am -> C)
+function toMajorKey(k) {
+  const m = String(k).trim().replace("♯", "#").replace("♭", "b").match(/^([A-G][#b]?)\s*(m(?!aj)|min|minor)?$/);
+  if (!m) return String(k).trim();
+  if (!m[2]) return m[1];
+  const i = Math.max(SHARPS.indexOf(m[1]), FLATS.indexOf(m[1]));
+  if (i < 0) return m[1];
+  const j = (i + 3) % 12;
+  return FLAT_KEYS.has(FLATS[j]) ? FLATS[j] : SHARPS[j];
+}
 function readFields(l) {
   if (!FIELDS_LINE_RE.test(l)) return null;
   const f = {}; let m;
-  if ((m = l.match(/\bkey\s*[:\-]\s*([A-G][#b♯♭]?m?)(?![A-Za-z0-9#])/i))) f.key = m[1];
+  if ((m = l.match(/\bkey\s*[:\-]\s*([A-G][#b♯♭]?m?)(?![A-Za-z0-9#])/i))) f.key = toMajorKey(m[1]);
   if ((m = l.match(/\b(?:tempo|bpm)\s*[:\-]?\s*(\d{2,3})\b/i))) f.tempo = m[1];
   if ((m = l.match(/\btime(?:\s*signature)?\s*[:\-]?\s*(\d{1,2}\/\d{1,2})/i))) f.time = m[1];
   return f;
@@ -386,7 +396,7 @@ function convert(raw, opts = {}) {
   // Number charts are converted in the sheet's own key when it gives one, otherwise the chosen key (C by default)
   let sheetKey = "";
   for (const l of lines) { const f = readFields(l); if (f && f.key) { sheetKey = f.key; break; } }
-  const userKey = typeof opts.key === "string" ? opts.key.trim() : null;   // null: not set by the user
+  const userKey = typeof opts.key === "string" ? toMajorKey(opts.key) : null;   // null: not set by the user
   const root = ((userKey || sheetKey).match(/^[A-G][#b♯♭]?/) || ["C"])[0].replace("♯", "#").replace("♭", "b");
   NUM.key = root;
   NUM.on = detectNumbers(lines);

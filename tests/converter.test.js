@@ -140,3 +140,16 @@ describe('converter: title from the first line', () => {
     expect(conv.body.join('\n')).not.toMatch(/^Harbour Lights$/m);
   });
 });
+
+describe('converter: keys are always major', () => {
+  it('a minor key on the sheet becomes its relative major', () => {
+    expect(chordPro('Key: Am\n\nVerse:\nAm\nRopes on the bollard').conv.meta.key).toBe('C');
+    expect(chordPro('Key: F#m\n\nVerse:\nF#m\nRopes on the bollard').conv.meta.key).toBe('A');
+    expect(chordPro('Key: Bbm\n\nVerse:\nBbm\nRopes on the bollard').conv.meta.key).toBe('Db');
+  });
+
+  it('a minor key typed in the box becomes its relative major', () => {
+    const conv = convert('Verse:\nAm\nRopes on the bollard', { key: 'Em' });
+    expect(buildChordPro(conv, 'T', '')).toMatch(/^\{key: G\}$/m);
+  });
+});
