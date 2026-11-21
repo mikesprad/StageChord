@@ -198,8 +198,8 @@ Verse 1:
 
 <script>
 // ===== CORE START =====
-const CHORD_RE = /^\(?[A-G](?:#|b|♯|♭)?(?:maj|min|mi|dim|aug|sus|add|m|M|°|ø|\+|-)?(?:[0-9]{1,2})?(?:(?:maj|add|sus|no|omit|b|#|\+|-|\/)?[0-9]{1,2})*(?:\([^)\s]*\))?(?:\/[A-G](?:#|b|♯|♭)?)?\)?\*?$/;
-const EXTRA_RE = /^(?:x\d+|\(x\d+\)|\d+x|\(\d+x\)|n\.?c\.?|\(n\.?c\.?\)|-+|\/+|%|\.{2,}|\*|\(|\)|:|riff|repeat)$/i;
+const CHORD_RE = /^\(?[A-G](?:#|b|♯|♭)?(?:maj|min|mi|dim|aug|sus|add|m|M|°|ø|\+|-)?(?:[0-9]{1,2})?(?:(?:maj|add|sus|no|omit|b|#|\+|-|\/)?[0-9]{1,2}|sus|add|maj)*(?:\([^)\s]*\))?(?:\/[A-G](?:#|b|♯|♭)?)?\)?\*?$/;
+const EXTRA_RE = /^(?:x\d+|\(x\d+\)|\d+x|\(\d+x\)|n\.?c\.?|\(n\.?c\.?\)|-+|\/+|%|\.+|\*|\(|\)|:|riff|repeat)$/i;
 const REPEAT_RE = /^\(?(?:x\d+|\d+x)\)?$/i;
 const SECTION_WORDS = /^(intro|verse|pre[- ]?chorus|chorus|post[- ]?chorus|bridge|middle\s*8|outro|interlude|instrumental|solo|refrain|hook|coda|tag|break|ending|link|turnaround|riff|vamp)\b/i;
 const JUNK_RE = /^\s*(difficulty|author|tabbed by|transcribed by|submitted by|strumming|last update|rating|chords used|tuning|print|font|autoscroll|transpose)\b/i;
@@ -327,16 +327,18 @@ function mergeLine(chordLine, lyric) {
 }
 // Chord-only lines (intros, outros, links): "| [Em] [C] [G] [D] | x2"
 // Chords go between bars; anything that isn't a chord (x2, repeat notes) follows.
-// Repeat marks (|: :| ||: :||) are kept as written, where they were: "||: [E] [E] [E] [E] :||"
+// Lines with bar lines or repeat marks (| |: :| ||: :||) keep them as written, where they were:
+// "||: [E] [E] [E] [E] :||", "| [G/B] [C2] . . | [D] [Em7] . . |". Beat dots stay too.
 const REPEAT_MARK_RE = /^(?:\|{1,2}:|:\|{1,2})$/;
 function chordOnlyLine(line) {
   const inside = [], after = [];
-  if (/\|:|:\|/.test(line)) {
-    // Split repeat marks off any chord they touch ("||:E" -> "||:", "E")
-    for (const raw of line.replace(/(\|{1,2}:|:\|{1,2})/g, " $1 ").trim().split(/\s+/)) {
+  if (/\|/.test(line)) {
+    // Split bar lines and repeat marks off any chord they touch ("||:E" -> "||:", "E")
+    for (const raw of line.replace(/(\|{1,2}:|:\|{1,2}|\|{1,2})/g, " $1 ").trim().split(/\s+/)) {
       if (REPEAT_MARK_RE.test(raw) || /^\|{1,2}$/.test(raw)) { inside.push(raw); continue; }
       const t = stripBars(raw);
       if (!t) continue;
+      if (/^\.+$/.test(t)) { inside.push(t); continue; }
       const k = isChordToken(raw);
       if (k === "chord") inside.push(fmtChordToken(raw));
       else if (/^\(?n\.?c\.?\)?$/i.test(t)) inside.push("N.C.");
@@ -347,6 +349,7 @@ function chordOnlyLine(line) {
   for (const raw of line.trim().split(/\s+/)) {
     const t = stripBars(raw);
     if (!t) continue;                              // bar lines are redrawn below
+    if (/^\.+$/.test(t)) { inside.push(t); continue; }
     const k = isChordToken(raw);
     if (k === "chord") inside.push(fmtChordToken(raw));
     else if (/^\(?n\.?c\.?\)?$/i.test(t)) inside.push("N.C.");
@@ -383,7 +386,11 @@ const PAGE_NUM_RE = /^\s*page\s+\d+(?:\s*(?:of|\/)\s*\d+)?\s*$/i;
 const COPYRIGHT_RE = /^\s*(?:©|\(c\)\s|copyright\b)/i;
 const LICENCE_RE = /(all rights reserved|used by permission|for use solely with|reproduction of this sheet|ccli\.com|ccli licen[cs]e)/i;
 const CCLI_RE = /^\s*ccli\s*(?:song)?\s*(?:#|no\.?|number)?\s*:?\s*(\d{3,})\s*$/i;
-function isInfoLine(l) { return !!(readFields(l) || WRITERS_RE.test(l) || BASED_ON_RE.test(l) || /^\s*capo\b/i.test(l)); }
+// "Joe L Barnes | Joshua Holiday | Steven Furtick": names split by " | ", no numbers
+const NAMES_LIST_RE = /^\s*[A-Z][^|\d]*(?:\s\|\s[A-Z][^|\d]*)+\s*$/;
+function isInfoLine(l) { return !!(readFields(l) || WRITERS_RE.test(l) || NAMES_LIST_RE.test(l) || BASED_ON_RE.test(l) || /^\s*capo\b/i.test(l)); }
+// "(based on the recording by Elevation Rhythm | original key: B)" -> "Elevation Rhythm"
+function artistFrom(s) { return s.split(/\s*\|\s*/)[0].trim(); }
 
 function convert(raw, opts = {}) {
   const text = raw
@@ -419,7 +426,7 @@ function convert(raw, opts = {}) {
       if ((mm = l.match(/^\s*CCLI Song\s*#\s*(\d+)/i))) { meta.ccli = mm[1]; return ""; }
       if ((mm = l.match(/^\s*(©.+?)\s*$/))) { meta.copyright = mm[1]; return ""; }
       if (/^\s*(For use solely with the SongSelect|Note: Reproduction of this sheet music|CCLI Licen[cs]e\s*#)/i.test(l)) return "";
-      if ((mm = l.match(/^\s*\(based on the recording by (.+?)\)\s*$/i))) { meta.artist = mm[1]; return ""; }
+      if ((mm = l.match(/^\s*\(based on the recording by (.+?)\)\s*$/i))) { meta.artist = artistFrom(mm[1]); return ""; }
       return l;
     });
   }
@@ -468,7 +475,8 @@ function convert(raw, opts = {}) {
       continue;
     }
     if ((m = l.match(WRITERS_RE))) { if (!meta.composer) meta.composer = m[1].split(/\s*\|\s*/).join(", "); continue; }
-    if ((m = l.match(BASED_ON_RE))) { if (!meta.artist) meta.artist = m[1]; continue; }
+    if ((m = l.match(BASED_ON_RE))) { if (!meta.artist) meta.artist = artistFrom(m[1]); continue; }
+    if (!started && meta.title && !meta.composer && NAMES_LIST_RE.test(l)) { meta.composer = l.trim().split(/\s*\|\s*/).join(", "); continue; }
     // Footer lines on any page: CCLI number, copyright (and its next line), licence wording, page numbers
     if ((m = l.match(PAGE_MARK_RE))) { page = +m[1]; pageTop = true; afterCopyright = false; pushBlank(); continue; }
     if (PAGE_NUM_RE.test(l)) continue;

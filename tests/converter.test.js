@@ -172,3 +172,28 @@ describe('converter: PDF layout', () => {
     expect(conv.body).toContain('Mary, did you [Am]know that your b[G]aby boy');
   });
 });
+
+describe('converter: SongSelect-style header without labels', () => {
+  const SHEET = [
+    'Harbour Lights',
+    'Ann Example | Bob Sample | Cat Writer',
+    '(based on the recording by The Example Band | original key: B)',
+    'Key - G | Tempo - 139 | Time - 4/4',
+    'CHORUS',
+    'Em7         D7sus',
+    'Ropes on the bollard',
+    'TURNAROUND',
+    '| G/B C2 . . | D Em7 . . |'
+  ].join('\n');
+  const { conv } = chordPro(SHEET);
+
+  it('reads title, writers given as "Name | Name" and the artist', () => {
+    expect(conv.meta).toMatchObject({ title: 'Harbour Lights', composer: 'Ann Example, Bob Sample, Cat Writer', artist: 'The Example Band', key: 'G' });
+    expect(conv.body.join('\n')).not.toMatch(/Ann Example|based on/);
+  });
+
+  it('recognises chords like D7sus and keeps bar lines and beat dots', () => {
+    expect(conv.body).toContain('[Em7]Ropes on the [D7sus]bollard');
+    expect(conv.body).toContain('| [G/B] [C2] . . | [D] [Em7] . . |');
+  });
+});
