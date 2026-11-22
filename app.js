@@ -718,8 +718,8 @@ nextBtn.addEventListener('click', () => navigate(1));
 // ── Swipe left / right on the song to change song ────
 // Works while Scroll is running. A swipe has to be long and mostly sideways, so
 // scrolling or brushing the screen on stage doesn't change song. Ignored near the
-// screen edges (iPhone "back" gesture), with two fingers (pinch), in Edit mode, and
-// on a line that scrolls sideways itself.
+// screen edges (iPhone "back" gesture), with two fingers (pinch), while an Edit mode
+// chord/word popup is open, and on a line that scrolls sideways itself.
 const SWIPE_MIN_DISTANCE = 80;
 const SWIPE_EDGE = 24;
 let swipeStart = null;
@@ -749,7 +749,7 @@ function showSwipeToast(text) {
 
 songView.addEventListener('touchstart', (e) => {
     swipeStart = null;
-    if (e.touches.length !== 1 || chordEditMode) return;
+    if (e.touches.length !== 1 || document.getElementById('chord-popup')) return;
     const t = e.touches[0];
     if (t.clientX < SWIPE_EDGE || t.clientX > window.innerWidth - SWIPE_EDGE) return;
     if (scrollsSideways(e.target)) return;

@@ -33,6 +33,24 @@ test('swiping left and right changes song, and does nothing past the ends', asyn
     await expect(title).toHaveText(SONG_ONE.title);
 });
 
+test('swiping works in Edit mode, but not while a chord popup is open', async ({ page, hasTouch }) => {
+    test.skip(!hasTouch, 'touch devices only');
+    await openApp(page);
+    await addSongsToLibrary(page, [SONG_ONE, SONG_TWO]);
+    await page.locator('#file-select').selectOption({ label: SONG_ONE.title });
+    const title = page.locator('#current-song-title');
+    await page.locator('button', { hasText: 'Edit song' }).click();
+    await expect(page.locator('button', { hasText: '✓ Done' })).toBeVisible();
+
+    await swipe(page, 400, 200);                       // left: next, still editing
+    await expect(title).toHaveText(SONG_TWO.title);
+
+    await page.locator('#song-view .chord-editable').first().click();
+    await expect(page.locator('#chord-popup')).toBeVisible();
+    await swipe(page, 200, 400);                       // popup open: ignored
+    await expect(title).toHaveText(SONG_TWO.title);
+});
+
 test('pinching changes the song text size (two-finger touch)', async ({ page }) => {
     await openApp(page);
     await addSongsToLibrary(page, [SONG_ONE]);
