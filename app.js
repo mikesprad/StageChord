@@ -1,4 +1,4 @@
-import { parseChordPro, readHeader, writeHeader, classifyLines } from './parser.js?v=20261016T2';
+import { parseChordPro, readHeader, writeHeader, classifyLines, tempoBpm } from './parser.js?v=20261016T2';
 import { renderStave, openStaveEditor, transposeStaveNotes } from './stave.js?v=20261016T2';
 import {
     addSong, addSongIfNew, getSong, getAllSongs, deleteSong,
@@ -1545,7 +1545,7 @@ function renderCurrent() {
             tempoBtn.textContent = `Tempo: ${parsed.metadata.tempo}`;
             tempoBtn.title = 'Click for tempo flash';
             tempoBtn.addEventListener('click', () => {
-                const bpm = Number(parsed.metadata.tempo);
+                const bpm = tempoBpm(parsed.metadata.tempo);   // "68 BPM" flashes at 68
                 if (!Number.isFinite(bpm) || bpm <= 0) return;
                 flashTempoOnNav(bpm);
             });

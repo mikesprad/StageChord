@@ -169,6 +169,13 @@ export function classifyLines(text) {
   return { lines: lines, kinds: kinds, directives: directives, header: header };
 }
 
+// Beats per minute from a {tempo} value, ignoring words around the number:
+// "68", "68 BPM", "68bpm", "Bpm: 68" -> 68. NaN when there's no number.
+export function tempoBpm(value) {
+  const m = String(value == null ? '' : value).match(/\d+(?:[.,]\d+)?/);
+  return m ? parseFloat(m[0].replace(',', '.')) : NaN;
+}
+
 export function parseChordPro(text) {
   var info = classifyLines(text);
   var metadata = {};
@@ -214,5 +221,5 @@ export function parseChordPro(text) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseChordPro, readHeader, writeHeader, classifyLines };
+  module.exports = { parseChordPro, readHeader, writeHeader, classifyLines, tempoBpm };
 }

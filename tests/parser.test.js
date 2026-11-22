@@ -123,3 +123,19 @@ describe('header metadata', () => {
     expect(writeHeader('x', [{ key: 'my key', value: 'a}\nb{' }])).toBe('{my_key: a b}\nx');
   });
 });
+
+describe('tempoBpm', () => {
+  const { tempoBpm } = require('../parser.js');
+  it('takes the number and ignores BPM in any case', () => {
+    expect(tempoBpm('68')).toBe(68);
+    expect(tempoBpm('68 BPM')).toBe(68);
+    expect(tempoBpm('68bpm')).toBe(68);
+    expect(tempoBpm('Bpm: 72')).toBe(72);
+    expect(tempoBpm(' 120 ')).toBe(120);
+  });
+  it('gives NaN when there is no number', () => {
+    expect(tempoBpm('fast')).toBeNaN();
+    expect(tempoBpm('')).toBeNaN();
+    expect(tempoBpm(undefined)).toBeNaN();
+  });
+});
