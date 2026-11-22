@@ -69,3 +69,26 @@ test('ticked songs stay ticked while hidden, and are all added', async ({ page }
     await expect(search).toHaveValue('');
     await expect(shown(page)).toHaveCount(TITLES.length);
 });
+
+test('adding songs keeps the set order: new songs go on the end, not alphabetical', async ({ page }) => {
+    const tick = (title) => page.locator('#library-song-list label', { hasText: title }).click();
+    const done = async () => {
+        await page.locator('#library-add-selected').click();
+        await expect(page.locator('#library-modal')).toBeHidden();
+    };
+
+    await tick("What's Up");
+    await done();
+    await clickMenu(page, 'menu-add-songs-to-set');
+    await tick('Living Hope');
+    await done();
+    await expect(page.locator('#file-select option')).toHaveText(["What's Up", 'Living Hope']);
+
+    // Add two more and untick one already in the set: the rest stay in place
+    await clickMenu(page, 'menu-add-songs-to-set');
+    await tick('Beautiful Saviour');
+    await tick('Alive');
+    await tick("What's Up");
+    await done();
+    await expect(page.locator('#file-select option')).toHaveText(['Living Hope', 'Alive', 'Beautiful Saviour']);
+});

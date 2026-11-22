@@ -2831,13 +2831,14 @@ async function applyLibrarySelectionAndClose() {
     const checkboxes = Array.from(librarySongList.querySelectorAll('input[type="checkbox"]'));
     const selectedIds = checkboxes.filter(cb => cb.checked).map(cb => Number(cb.value));
     const currentSongId = songs[currentIndex] ? songs[currentIndex].songId : undefined;
-    const songMap = new Map(songs.map((song) => [song.songId, song]));
-    const updatedSongs = [];
+    // Keep the set's own order: songs already in the set stay where they are
+    // (minus any unticked), and newly ticked songs go on the end.
+    const selectedSet = new Set(selectedIds);
+    const updatedSongs = songs.filter((s) => selectedSet.has(s.songId));
+    const alreadyInSet = new Set(updatedSongs.map((s) => s.songId));
 
     for (const songId of selectedIds) {
-        if (songMap.has(songId)) {
-            updatedSongs.push(songMap.get(songId));
-        } else {
+        if (!alreadyInSet.has(songId)) {
             const songRecord = await getSong(songId);
             if (!songRecord) continue;
             const state = await getSongState(songId) || {};
