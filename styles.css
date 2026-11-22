@@ -34,6 +34,12 @@ input, textarea, select {
 #swipe-toast.visible {
   opacity: 1;
 }
+/* Stop iPhone Safari's text autosizing, which enlarged some lines and not
+   others (mixed text sizes) when a long line made the page wider than the screen */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
@@ -741,6 +747,9 @@ body.old-ios-menu #menu-panel {
   margin-top: 1rem;
   padding-bottom: 20vh;
   white-space: pre-wrap;
+  /* A word too long for the screen breaks rather than spilling past the edge */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   font-size: var(--song-font-size);
 }
 .song-title {
@@ -764,14 +773,16 @@ body.old-ios-menu #menu-panel {
 .tempo-btn {
   margin-left: 0.5rem;
 }
+/* Lines keep their spacing but wrap (pre-wrap, not pre): a line wider than the
+   screen made the whole page scroll sideways, which broke swipe on iPhone */
 .chord-line {
   font-weight: bold;
   text-align: left;
-  white-space: pre;
+  white-space: pre-wrap;
 }
 .lyric-line {
   text-align: left;
-  white-space: pre;
+  white-space: pre-wrap;
 }
 .chord-lyric-line {
   text-align: left;
@@ -782,7 +793,10 @@ body.old-ios-menu #menu-panel {
 .chord-lyric-pair {
   display: inline-block;
   vertical-align: top;
-  white-space: pre;
+  /* A long lyric under one chord wraps inside its block (chord stays above the
+     first part); max-width keeps the block itself within the screen */
+  white-space: pre-wrap;
+  max-width: 100%;
   font-size: var(--song-font-size);
   line-height: 1.2;
 }
