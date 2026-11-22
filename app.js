@@ -2761,6 +2761,54 @@ const librarySongList = document.getElementById('library-song-list');
 const libraryModalActions = document.getElementById('library-modal-actions');
 const libraryAddSelected = document.getElementById('library-add-selected');
 
+const librarySearch = document.getElementById('library-search');
+const librarySearchClear = document.getElementById('library-search-clear');
+const librarySearchCount = document.getElementById('library-search-count');
+
+// For matching: lower case, no accents or punctuation. "What's Up!" -> "whats up"
+function searchKey(s) {
+    let t = String(s || '').toLowerCase();
+    try { t = t.normalize('NFD').replace(/[̀-ͯ]/g, ''); } catch (_) {}
+    return t.replace(/['‘’`]/g, '')
+        .replace(/[\s.,;:!?"“”()[\]{}\-–—\/\\&+*#@|_~…]+/g, ' ')
+        .trim();
+}
+
+// Hide the songs whose name doesn't contain every word typed. Hidden songs keep their
+// ticks, and "Add selected" still adds them.
+function filterLibraryList() {
+    if (!librarySearch) return;
+    const words = searchKey(librarySearch.value).split(' ').filter(Boolean);
+    const items = librarySongList.querySelectorAll('.library-song-item');
+    let shown = 0;
+    for (let i = 0; i < items.length; i++) {
+        const key = items[i].getAttribute('data-search') || '';
+        const match = words.every((w) => key.indexOf(w) !== -1);
+        items[i].classList.toggle('filtered-out', !match);
+        if (match) shown++;
+    }
+    if (librarySearchClear) librarySearchClear.hidden = !librarySearch.value;
+    if (librarySearchCount) {
+        librarySearchCount.textContent = !words.length ? ''
+            : shown ? `${shown} of ${items.length} songs` : 'No songs match';
+    }
+}
+
+if (librarySearch) {
+    librarySearch.addEventListener('input', filterLibraryList);
+    // Enter / Search on the keyboard: put the keyboard away, the list is already filtered
+    librarySearch.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.keyCode === 13) { e.preventDefault(); librarySearch.blur(); }
+    });
+}
+if (librarySearchClear) {
+    librarySearchClear.addEventListener('click', () => {
+        librarySearch.value = '';
+        filterLibraryList();
+        librarySearch.focus();
+    });
+}
+
 function closeLibraryModal() {
     libraryModal.classList.add('hidden');
 }
@@ -2849,6 +2897,13 @@ async function openLibraryBrowser(mode = 'set') {
     allSongs.sort((a, b) => songTitles[a.id].localeCompare(songTitles[b.id]));
     librarySongList.innerHTML = '';
     libraryModal.dataset.mode = mode;
+    // Each opening starts with an empty search; no search box for an empty library
+    if (librarySearch) librarySearch.value = '';
+    const searchRow = document.getElementById('library-search-row');
+    if (searchRow) searchRow.style.display = allSongs.length ? '' : 'none';
+    const panelEl = document.getElementById('library-modal-panel');
+    if (panelEl) panelEl.style.height = '';
+    filterLibraryList();
     if (libraryModalTitle) {
         const lib = currentLibraryId ? await getLibrary(currentLibraryId) : null;
         const libName = currentLibraryId ? (lib ? lib.name : undefined) : 'Unknown';
@@ -2872,6 +2927,7 @@ async function openLibraryBrowser(mode = 'set') {
 
         const item = document.createElement('div');
         item.className = 'library-song-item';
+        item.setAttribute('data-search', searchKey(title));
 
         let cb = null;
         if (!isManageMode) {
@@ -2915,6 +2971,7 @@ async function openLibraryBrowser(mode = 'set') {
                     saveSessionRef();
                 }
                 item.remove();
+                filterLibraryList();
             });
             item.appendChild(delBtn);
         }
@@ -2923,6 +2980,16 @@ async function openLibraryBrowser(mode = 'set') {
     });
 
     libraryModal.classList.remove('hidden');
+    librarySongList.scrollTop = 0;
+    // Keep the box the same size while the search hides songs, so it doesn't jump about
+    const panel = document.getElementById('library-modal-panel');
+    if (panel) {
+        panel.style.height = '';
+        panel.style.height = panel.offsetHeight + 'px';
+    }
+    // Ready to type on a computer. Not on touch screens: the keyboard would cover half the list.
+    const touchScreen = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    if (librarySearch && !touchScreen) librarySearch.focus();
 }
 
 libraryAddSelected.addEventListener('click', onLibraryDoneClick);
