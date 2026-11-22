@@ -4,9 +4,13 @@ html, body {
 }
 /* No double-tap zoom (it zoomed in on a chord or lyric when tapped twice on
    stage). Safari checks this on the element tapped, so it's set on everything.
-   Page pinch zoom is off too (index.html); a pinch changes the text size (app.js). */
-html, body, * {
+   Page pinch zoom is off too (index.html); a pinch changes the text size (app.js).
+   Text boxes are left out: on old iPads it may stop the keyboard appearing. */
+html, body, *:not(input):not(textarea):not(select) {
   touch-action: manipulation;
+}
+input, textarea, select {
+  touch-action: auto;
 }
 /* The new song's name, shown briefly after swiping to change song */
 #swipe-toast {
