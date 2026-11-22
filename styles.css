@@ -758,11 +758,11 @@ body.old-ios-menu #menu-panel {
   font-size: 1rem;
   cursor: pointer;
 }
+/* No hover colour: on iPad/iPhone hover sticks after a tap, and a background
+   colour makes Safari drop its own button look (rounded, wider), so the button
+   shrank and the title line rewrapped while the tempo flashed */
 .tempo-btn {
   margin-left: 0.5rem;
-}
-.tempo-btn:hover {
-  background: #eee;
 }
 .chord-line {
   font-weight: bold;
