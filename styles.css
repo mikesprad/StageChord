@@ -734,7 +734,9 @@ body.old-ios-menu #menu-panel {
   font-size: 0.7rem;
   color: #888;
   font-style: italic;
-  white-space: nowrap;
+  /* Wraps on a narrow phone: unwrapped it made the page wider than the screen
+     in Edit mode, which scrolls the page sideways and breaks swipe */
+  white-space: normal;
   padding: 0.15rem 1rem;
   background: #fafafa;
   border-bottom: 1px solid #e0e0e0;
