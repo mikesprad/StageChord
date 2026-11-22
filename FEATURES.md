@@ -26,6 +26,7 @@ The full implementation notes are preserved in `IMPLEMENTED_FEATURE_DETAILS.md`.
 - Search in Add Songs to Set (1.13): a box at the top filters the list by song name as you type (any order of words; case, accents and punctuation ignored). Ticked songs stay ticked while hidden. Also in Manage Library.
 - Fixes (1.14–1.16): text boxes are left out of the double-tap-zoom blocker (the keyboard stopped appearing on an old iPad); section jump buttons wrap onto their own line instead of spilling off the screen; the Tempo button keeps its shape after a tap (it shrank and rewrapped the title line on iPhone); `{tempo: 68 BPM}` flashes at 68.
 - Fixes (1.17): adding songs to a set keeps the set's order (it was re-sorted alphabetically); new songs go on the end. Swipe works in Edit mode too (Edit mode stays on across songs, so forgetting Done turned swipe off), except while a chord/word popup is open.
+- Fixes (1.18): long lines wrap inside the screen on iPhone, including a long lyric under one chord (the chord stays above its first part) and the Edit mode tip. A line wider than the screen made the page scroll sideways, which broke swipe. iPhone text autosizing is turned off (it made lines different sizes).
 - "Update Available" that never cleared is fixed (1.9).
 - Multi-Library support: separate song/set contexts (e.g. Church, Funk Band) with Switch Library, Manage Libraries, and per-library bundle export/import. Songs and sets are library-scoped. Existing data migrated to Default library on upgrade (IndexedDB v2).
 
