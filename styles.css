@@ -664,7 +664,10 @@ body.old-ios-menu #menu-panel {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-wrap: nowrap;
+  /* Lets the section jump buttons drop to their own line instead of spilling
+     past the screen edge (which also broke swipe on iPhone) */
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
   background: #fafafa;
   padding: 0.5rem 1rem;
   margin: 0 -1rem;
@@ -693,6 +696,19 @@ body.old-ios-menu #menu-panel {
   display: flex;
   gap: 0.4rem;
   align-items: center;
+  /* The jump buttons move as one group; only if a single line can't hold them
+     all do they wrap among themselves */
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  max-width: 100%;
+  min-width: 0;
+}
+#section-jumps:empty {
+  display: none;
+}
+#section-jumps button {
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
 }
 #section-jumps button {
   padding: 0.35rem 0.55rem;
