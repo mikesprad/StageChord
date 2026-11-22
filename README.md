@@ -9,7 +9,7 @@ Mobile-friendly ChordPro viewer and setlist manager. Runs entirely in the browse
 - **ChordPro converter** (`chordpro-converter.html`, linked from Songs & Help): paste a chord sheet or open a PDF, then **Add to StageChord** or download it
 - Swipe left/right to change song in a set; pinch to change the text size (the page doesn't zoom, so the controls stay on screen)
 - Organise songs into **Libraries** (e.g. Church, Funk Band)
-- Build and save **Sets** (setlists) per library
+- Build and save **Sets** (setlists) per library. **Add Songs to Set** has a search box that filters the list by song name as you type
 - Share sets as a link or file
 - Import **Bundles** of songs from the Songs & Help page
 - Installable as a PWA on iOS and Android
@@ -28,7 +28,7 @@ Done features, ideas and parked work are listed in [FEATURES.md](FEATURES.md).
 ## ChordPro files
 
 - **Header metadata is hidden.** Every line starting with `{` at the top of the file, up to the first lyric or section line, counts as metadata and is never shown. That includes a tag missing its `}` and a tag spread over several lines (`{flow: Intro` … `V2 Ch}`). The search for a missing `}` stops at a blank line, a new `{`, a chord line or 12 lines, so a stray `{` can't hide the song. All of this lives in `parser.js` (`classifyLines`), which the renderer and the editors share.
-- **Tags the app uses:** `title`, `key`, `tempo`. Keys are always shown as major: a minor key is shown as its relative major (`Am` → C), here and in the converter. With no `key`, the app works it out from the chords (`songKeyInfo` in `app.js`): the major key whose chords fit best. Others (`artist`, `flow`, …) are kept and editable but not displayed. If a key appears more than once, the header wins over the body, and the first header value wins.
+- **Tags the app uses:** `title`, `key`, `tempo`. Keys are always shown as major: a minor key is shown as its relative major (`Am` → C), here and in the converter. With no `key`, the app works it out from the chords (`songKeyInfo` in `app.js`): the major key whose chords fit best. Others (`artist`, `flow`, …) are kept and editable but not displayed. If a key appears more than once, the header wins over the body, and the first header value wins. The Tempo button (tap to flash the beat) takes the number from `tempo` and ignores words around it, so `68 BPM` flashes at 68 (`tempoBpm` in `parser.js`).
 - **`{sc-comment: …}`** is StageChord's own tag for a comment under a section heading. It's the only `{…}` line shown in the song.
 - **Edits never change the original text.** The original is kept for de-duplication and set imports. Chord, comment, key, tempo and details edits are stored as the song's edited text, Reset discards them, and bundles and shared sets carry them.
 
@@ -82,7 +82,7 @@ Changes are infrequent (roughly monthly, one person at a time), so the process i
 
 ```
 git checkout main && git pull
-npm run release -- 1.2        # next version number; earlier releases were 1.0 and 1.1
+npm run release -- 1.17       # the next version number (see the latest under GitHub Releases)
 ```
 
 `scripts/release.cjs` checks that `main` is clean, pushed and passing CI, and that the version is new. It then creates the GitHub release, with notes generated from the merged PRs, and follows the deploy until it's live. Nobody edits version numbers by hand.
