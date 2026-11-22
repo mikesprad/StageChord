@@ -886,11 +886,11 @@ function download() {
   h.innerHTML = ""; const s = document.createElement("span"); s.className = "toast"; s.textContent = "Saved " + filename(); h.appendChild(s);
 }
 
-// New song: empty everything except a remembered artist, ready to type a title or paste.
+// New song: empty everything, artist included, ready to type a title or paste.
 function newSong() {
   src.value = ""; titleEl.value = ""; titleTouched = false; pdfNote = "";
   keyEl.value = ""; keyTouched = false;
-  if (!artistEl.dataset.touched) artistEl.value = "";
+  artistEl.value = ""; delete artistEl.dataset.touched;
   titleEl.classList.remove("guess");
   $("titleHint").textContent = "";
   rebuild(false);
@@ -910,7 +910,7 @@ titleEl.addEventListener("input", () => {
   $("titleHint").textContent = "";
   rebuild(false);   // an emptied box is filled again on the next paste, not straight away
 });
-artistEl.addEventListener("input", () => { artistEl.dataset.touched = "1"; store.set("cp_artist", artistEl.value); rebuild(false); });
+artistEl.addEventListener("input", () => { artistEl.dataset.touched = "1"; rebuild(false); });
 extEl.addEventListener("change", () => { store.set("cp_ext", extEl.value); updateDownload(); });
 out.addEventListener("input", updateDownload);
 $("download").addEventListener("click", download);
@@ -989,8 +989,8 @@ srcPane.addEventListener("drop", (e) => {
 // A key typed here is never replaced by the sheet's (blank means no key). New song resets it.
 keyEl.addEventListener("input", () => { keyTouched = true; rebuild(false); });
 
-const savedArtist = store.get("cp_artist");
-if (savedArtist) { artistEl.value = savedArtist; artistEl.dataset.touched = "1"; }
+// Each visit starts empty, artist included. Older versions saved the artist: forget it.
+try { localStorage.removeItem("cp_artist"); } catch (e) {}
 const savedExt = store.get("cp_ext");
 if (savedExt) extEl.value = savedExt;
 rebuild(false);

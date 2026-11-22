@@ -153,6 +153,12 @@
                 <span>Song Library</span>
                 <button id="library-modal-close" type="button">✕</button>
             </div>
+            <div id="library-search-row">
+                <input type="text" id="library-search" placeholder="Search songs" aria-label="Search songs"
+                    autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+                <button id="library-search-clear" type="button" aria-label="Clear search" hidden>✕</button>
+            </div>
+            <div id="library-search-count" aria-live="polite"></div>
             <div id="library-song-list"></div>
             <div id="library-modal-actions">
                 <button id="library-add-selected" type="button">Add selected</button>

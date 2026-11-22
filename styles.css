@@ -368,7 +368,48 @@ body.old-ios-menu #menu-panel {
   opacity: 0.65;
   cursor: default;
 }
+/* Search box above the song list: stays put while the list scrolls */
+#library-search-row {
+  position: relative;
+  flex-shrink: 0;
+}
+#library-search {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 2.4rem 0.5rem 0.6rem;
+  font-size: 16px;               /* 16px so iOS doesn't zoom */
+  border: 1px solid #bbb;
+  border-radius: 4px;
+  -webkit-appearance: none;
+}
+#library-search-clear {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 2.4rem;
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+#library-search-clear[hidden] {
+  display: none;
+}
+#library-search-count {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: #666;
+  padding: 0.3rem 0.2rem 0 0.2rem;
+}
+#library-search-count:empty {
+  display: none;
+}
+.library-song-item.filtered-out {
+  display: none;
+}
 #library-song-list {
+  margin-top: 0.4rem;
   overflow-y: auto;
   min-height: 0;
   flex: 1 1 auto;
